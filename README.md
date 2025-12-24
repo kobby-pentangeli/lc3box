@@ -2,6 +2,10 @@
 
 An implementation of a virtual machine for the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) language and ISA.
 
+## Architecture
+
+![LC-3 Box architecture diagram](./assets/lc3box-arch.png)
+
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).

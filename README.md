@@ -6,6 +6,18 @@ An implementation of a virtual machine for the [_Little Computer 3_ (LC-3)](http
 
 ![LC-3 Box architecture diagram](./assets/lc3box-arch.png)
 
+## Usage
+
+The [examples](./examples) folder contains some LC-3 compatible assembled programs (`.obj`) for the LC-3 ISA.
+
+To run any of them, execute
+
+```sh
+cargo run -- examples/<program_name>.obj
+```
+
+There's also a `bootstrap.asm` in the [examples](./examples/bootstrap.asm). You can copy-paste the code into any Web-based and/or GUI LC-3 assembler to get a `.obj` version that can then be executed by this VM.
+
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).

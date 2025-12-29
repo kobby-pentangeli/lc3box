@@ -6,7 +6,7 @@ enum ConditionFlag {
     Neg = 1 << 2, // Negative
 }
 
-pub struct Register {
+pub struct Registers {
     pub r0: u16,
     pub r1: u16,
     pub r2: u16,
@@ -21,7 +21,7 @@ pub struct Register {
     pub cond: u16,
 }
 
-impl Register {
+impl Registers {
     pub fn new() -> Self {
         Self {
             r0: 0,
@@ -81,7 +81,7 @@ impl Register {
     }
 }
 
-impl Default for Register {
+impl Default for Registers {
     fn default() -> Self {
         Self::new()
     }

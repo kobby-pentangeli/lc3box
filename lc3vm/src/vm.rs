@@ -45,6 +45,12 @@ pub struct Lc3VM {
     pub registers: Registers,
 }
 
+impl Default for Lc3VM {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Lc3VM {
     /// Creates a new VM in initial state.
     pub fn new() -> Self {
@@ -54,17 +60,18 @@ impl Lc3VM {
         }
     }
 
-    pub fn load_program(&mut self, path: &Path) -> anyhow::Result<()> {
+    pub fn init_from_program(path: &Path) -> anyhow::Result<Self> {
+        let mut vm = Self::new();
+
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
-
         let base_address = reader.read_u16::<BigEndian>()?;
         let mut address = base_address as usize;
 
         loop {
             match reader.read_u16::<BigEndian>() {
                 Ok(instruction) => {
-                    self.write_memory(address, instruction);
+                    vm.write_memory(address, instruction);
                     address += 1;
                 }
                 Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
@@ -72,16 +79,24 @@ impl Lc3VM {
             }
         }
 
-        Ok(())
+        Ok(vm)
+    }
+
+    pub fn execute_program(&mut self) {
+        while self.registers.pc < MEMORY_SIZE as u16 {
+            let inst = self.read_memory(self.registers.pc);
+            self.registers.pc += 1;
+            self.execute_instruction(inst)
+        }
     }
 
     /// Loads the program `instruction` into the VM at the given memory `address`.
-    pub fn write_memory(&mut self, address: usize, instruction: u16) {
+    fn write_memory(&mut self, address: usize, instruction: u16) {
         self.memory[address] = instruction;
     }
 
     /// Retrieves a program instruction from the specified memory `address`.
-    pub fn read_memory(&mut self, address: u16) -> u16 {
+    fn read_memory(&mut self, address: u16) -> u16 {
         if address == MMappedReg::Kbsr as u16 {
             self.handle_keyboard();
         }
@@ -99,14 +114,6 @@ impl Lc3VM {
             self.write_memory(MMappedReg::Kbdr as usize, buf[0] as u16);
         } else {
             self.write_memory(MMappedReg::Kbsr as usize, 0);
-        }
-    }
-
-    pub fn execute_program(&mut self) {
-        while self.registers.pc < MEMORY_SIZE as u16 {
-            let inst = self.read_memory(self.registers.pc);
-            self.registers.pc += 1;
-            self.execute_instruction(inst)
         }
     }
 
@@ -584,12 +591,6 @@ impl Lc3VM {
                 std::process::exit(1);
             }
         }
-    }
-}
-
-impl Default for Lc3VM {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

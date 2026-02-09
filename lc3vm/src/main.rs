@@ -37,13 +37,9 @@ impl Drop for TerminalGuard {
 
 fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
-
     let _guard = TerminalGuard::new()?;
-
-    let mut vm = Lc3VM::new();
-    vm.load_program(&cli.path)?;
+    let mut vm = Lc3VM::init_from_program(&cli.path)?;
     vm.execute_program();
-
     Ok(())
 }
 

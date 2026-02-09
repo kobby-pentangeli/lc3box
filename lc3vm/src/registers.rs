@@ -4,32 +4,6 @@ const PC_START: u16 = 0x3000;
 /// Register number 9 is the `cond` register.
 const RCOND_INDEX: u16 = 9;
 
-/// The `RCOND` register stores condition flags that represent information about
-/// the most recent computation. It's used for checking logical conditions.
-/// The LC-3 uses only 3 condition flags which indicate
-/// the sign of the previous computation.
-///
-/// In binary, with 3 bits only:
-/// - 1 == 001
-/// - 2 == 010
-/// - 4 == 100
-///
-/// So we're essentially playing with the possible conditional flags settings!
-/// Because the condition instruction will be `nzp` (neg, zero, pos)
-/// and only one can be set at a time, it will either be 001 (positive set `nz1`),
-/// 010 (zero set, `n1p`), and 100 (negative set, `1zp`).
-/// These three binary values are 1, 2, and 4 respectively, in decimal!
-enum ConditionFlag {
-    /// Positive flag set, i.e., `nz1` for the `nzp` instruction.
-    Pos = 1 << 0, // Positive
-
-    /// Zero flag set, i.e., `n1p` for the `nzp` instruction.
-    Zro = 1 << 1,
-
-    /// Negative flag set, i.e., `1zp` for the `nzp` instruction.
-    Neg = 1 << 2,
-}
-
 /// LC-3 has 10 registers: 8 general-purpose registers (`r0`...`r7`),
 /// 1 program counter (`pc`) register, and one condition flag (`cond`) register.
 /// The program counter stores a memory address of the next instruction to be executed.
@@ -116,6 +90,32 @@ impl Registers {
             self.update(RCOND_INDEX, ConditionFlag::Pos as u16);
         }
     }
+}
+
+/// The `RCOND` register stores condition flags that represent information about
+/// the most recent computation. It's used for checking logical conditions.
+/// The LC-3 uses only 3 condition flags which indicate
+/// the sign of the previous computation.
+///
+/// In binary, with 3 bits only:
+/// - 1 == 001
+/// - 2 == 010
+/// - 4 == 100
+///
+/// So we're essentially playing with the possible conditional flags settings!
+/// Because the condition instruction will be `nzp` (neg, zero, pos)
+/// and only one can be set at a time, it will either be 001 (positive set `nz1`),
+/// 010 (zero set, `n1p`), and 100 (negative set, `1zp`).
+/// These three binary values are 1, 2, and 4 respectively, in decimal!
+pub enum ConditionFlag {
+    /// Positive flag set, i.e., `nz1` for the `nzp` instruction.
+    Pos = 1 << 0, // Positive
+
+    /// Zero flag set, i.e., `n1p` for the `nzp` instruction.
+    Zro = 1 << 1,
+
+    /// Negative flag set, i.e., `1zp` for the `nzp` instruction.
+    Neg = 1 << 2,
 }
 
 /// Memory-mapped register.

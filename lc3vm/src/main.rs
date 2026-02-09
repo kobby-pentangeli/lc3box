@@ -5,7 +5,7 @@ use lc3vm::Lc3VM;
 use termios::{ECHO, ICANON, TCSANOW, Termios, tcsetattr};
 
 #[derive(Parser)]
-#[command(name = "lc3box")]
+#[command(name = "lc3vm")]
 #[command(about = "An LC-3 Virtual Machine", long_about = None)]
 struct Cli {
     /// Path to the LC-3 object file

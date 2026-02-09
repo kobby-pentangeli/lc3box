@@ -46,6 +46,12 @@ pub struct Registers {
     pub cond: u16,
 }
 
+impl Default for Registers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Registers {
     /// Initializes all 10 registers with default values.
     /// The program counter starts at 0x3000 (`PC_START`).
@@ -112,8 +118,18 @@ impl Registers {
     }
 }
 
-impl Default for Registers {
-    fn default() -> Self {
-        Self::new()
-    }
+/// Memory-mapped register.
+///
+/// Memory-mapped I/O are handled by load/store (LDI/STI, LDR/STR) instructions
+/// using memory addresses to designate each I/O device register.
+/// Addresses xFE00 through xFFFF have been allocated to represent the addresses of I/O devices.
+///
+/// LC-3 has two memory-mapped registers that need to be implemented.
+/// They are the _keyboard status register_ (KBSR) and _keyboard data register_ (KBDR).
+/// The KBSR indicates whether a key has been pressed, and the KBDR identifies which key was pressed.
+pub enum MMappedReg {
+    /// Indicates whether a key has been pressed
+    Kbsr = 0xFE00,
+    /// Identifies which key was pressed
+    Kbdr = 0xFE02,
 }

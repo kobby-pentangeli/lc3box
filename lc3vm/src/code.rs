@@ -1,7 +1,3 @@
-use std::io::{self, Read as _, Write as _};
-
-use crate::VM;
-
 /// Operation codes for the LC-3.
 ///
 /// LC-3 has 16 opcodes. Each instruction is 16 bits long, with
@@ -106,89 +102,6 @@ impl Opcode {
             14 => Some(Self::Lea),
             15 => Some(Self::Trap),
             _ => None,
-        }
-    }
-}
-
-impl Trapcode {
-    /// Executes a trap service routine.
-    ///
-    /// # Trap Vector Mapping
-    /// - 0x20 (GETC): Read single character to R0
-    /// - 0x21 (OUT): Write character from R0
-    /// - 0x22 (PUTS): Write null-terminated string
-    /// - 0x23 (IN): Prompt and read character
-    /// - 0x24 (PUTSP): Write packed byte string
-    /// - 0x25 (HALT): Terminate execution
-    pub(crate) fn execute(instruction: u16, vm: &mut VM) {
-        let code = Self::try_from(instruction & 0xFF).expect("invalid trapcode");
-
-        match code {
-            Self::Getc => {
-                let mut buf = [0; 1];
-                io::stdin()
-                    .read_exact(&mut buf)
-                    .expect("error reading from stdin");
-                vm.registers.r0 = buf[0] as u16;
-            }
-
-            Self::Out => {
-                let mut stdout = io::stdout().lock();
-                let c = vm.registers.r0 as u8 as char;
-                write!(stdout, "{c}").expect("failed to write to stdout");
-                stdout.flush().expect("failed to flush stdout");
-            }
-
-            Self::Puts => {
-                let mut stdout = io::stdout().lock();
-                let mut addr = vm.registers.r0;
-                loop {
-                    let c = vm.read_memory(addr);
-                    if c == 0 {
-                        break;
-                    }
-                    write!(stdout, "{}", c as u8 as char).expect("failed to write to stdout");
-                    addr += 1;
-                }
-                stdout.flush().expect("failed to flush stdout");
-            }
-
-            Self::In => {
-                print!("Enter a character: ");
-                io::stdout().flush().expect("failed to flush stdout");
-
-                let mut buf = [0; 1];
-                io::stdin()
-                    .read_exact(&mut buf)
-                    .expect("error reading from stdin");
-
-                vm.registers.update(0, buf[0] as u16);
-            }
-
-            Self::Putsp => {
-                let mut stdout = io::stdout().lock();
-                let mut addr = vm.registers.r0;
-                loop {
-                    let c = vm.read_memory(addr);
-                    if c == 0 {
-                        break;
-                    }
-                    let c1 = (c & 0xFF) as u8 as char;
-                    write!(stdout, "{c1}").expect("failed to write to stdout");
-                    let c2 = (c >> 8) as u8 as char;
-                    if c2 != '\0' {
-                        write!(stdout, "{c2}").expect("failed to write to stdout");
-                    }
-                    addr += 1;
-                }
-                stdout.flush().expect("failed to flush stdout");
-            }
-
-            Self::Halt => {
-                println!("\nHALT detected!");
-                io::stdout().flush().expect("failed to flush stdout");
-                std::process::exit(1);
-            }
         }
     }
 }

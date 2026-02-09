@@ -1,10 +1,7 @@
-use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use byteorder::{BigEndian, ReadBytesExt};
 use clap::Parser;
-use lc3vm::VM;
+use lc3vm::Lc3VM;
 use termios::{ECHO, ICANON, TCSANOW, Termios, tcsetattr};
 
 #[derive(Parser)]
@@ -38,35 +35,14 @@ impl Drop for TerminalGuard {
     }
 }
 
-fn load_program(vm: &mut VM, path: &Path) -> anyhow::Result<()> {
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
-
-    let base_address = reader.read_u16::<BigEndian>()?;
-    let mut address = base_address as usize;
-
-    loop {
-        match reader.read_u16::<BigEndian>() {
-            Ok(instruction) => {
-                vm.write_memory(address, instruction);
-                address += 1;
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(e) => return Err(e.into()),
-        }
-    }
-
-    Ok(())
-}
-
 fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let _guard = TerminalGuard::new()?;
 
-    let mut vm = VM::new();
-    load_program(&mut vm, &cli.path)?;
-    lc3vm::execute_program(&mut vm);
+    let mut vm = Lc3VM::new();
+    vm.load_program(&cli.path)?;
+    vm.execute_program();
 
     Ok(())
 }

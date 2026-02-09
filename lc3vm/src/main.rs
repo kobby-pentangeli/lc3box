@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use byteorder::{BigEndian, ReadBytesExt};
 use clap::Parser;
-use lc3box::emulator::VM;
+use lc3vm::VM;
 use termios::{ECHO, ICANON, TCSANOW, Termios, tcsetattr};
 
 #[derive(Parser)]
@@ -66,7 +66,7 @@ fn run() -> anyhow::Result<()> {
 
     let mut vm = VM::new();
     load_program(&mut vm, &cli.path)?;
-    lc3box::emulator::execute_program(&mut vm);
+    lc3vm::execute_program(&mut vm);
 
     Ok(())
 }

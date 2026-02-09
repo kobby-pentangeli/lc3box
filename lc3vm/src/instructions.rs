@@ -1,10 +1,30 @@
-mod opcode;
-mod trapcode;
+use crate::{Opcode, Trapcode, VM};
 
-pub use opcode::Opcode;
-pub use trapcode::Trapcode;
-
-use super::VM;
+/// Executes a single LC-3 instruction.
+///
+/// # Execution flow
+/// 1. Decode instruction using first 4 bits as opcode
+/// 2. Dispatch to appropriate instruction handler
+/// 3. Handle invalid opcodes via VM error reporting
+pub(crate) fn execute(instruction: u16, vm: &mut VM) {
+    match Opcode::get(instruction) {
+        Some(Opcode::Br) => br(instruction, vm),
+        Some(Opcode::Add) => add(instruction, vm),
+        Some(Opcode::Ld) => ld(instruction, vm),
+        Some(Opcode::St) => st(instruction, vm),
+        Some(Opcode::Jsr) => jsr(instruction, vm),
+        Some(Opcode::And) => and(instruction, vm),
+        Some(Opcode::Ldr) => ldr(instruction, vm),
+        Some(Opcode::Str) => str(instruction, vm),
+        Some(Opcode::Not) => not(instruction, vm),
+        Some(Opcode::Ldi) => ldi(instruction, vm),
+        Some(Opcode::Sti) => sti(instruction, vm),
+        Some(Opcode::Jmp) => jmp(instruction, vm),
+        Some(Opcode::Lea) => lea(instruction, vm),
+        Some(Opcode::Trap) => trap(instruction, vm),
+        _ => {}
+    }
+}
 
 /// Branch to a PC-relative address if conditions are met.
 ///

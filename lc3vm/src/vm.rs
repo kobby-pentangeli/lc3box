@@ -1,6 +1,6 @@
 use std::io::Read as _;
 
-use super::{MEMORY_SIZE, Registers};
+use crate::{MEMORY_SIZE, Registers};
 
 /// Memory-mapped register.
 ///

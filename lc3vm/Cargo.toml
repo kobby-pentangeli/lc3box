@@ -1,0 +1,18 @@
+[package]
+name = "lc3vm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[[bin]]
+name = "emulator"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+byteorder = "1.5"
+clap = { version = "4.5", features = ["derive"] }
+libc = "0.2"
+termios = "0.3"

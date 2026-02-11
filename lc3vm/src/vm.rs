@@ -4,11 +4,7 @@ use std::path::Path;
 
 use byteorder::{BigEndian, ReadBytesExt};
 
-use crate::{MMappedReg, Opcode, Registers, Trapcode};
-
-/// The LC-3 has 65536 memory locations,
-/// the max addressable by `u16`, 2^16.
-const MEMORY_SIZE: usize = u16::MAX as usize;
+use crate::{MEMORY_SIZE, MMappedReg, Memory, Opcode, Registers, Trapcode};
 
 /// The main LC-3 emulator.
 ///
@@ -24,7 +20,7 @@ const MEMORY_SIZE: usize = u16::MAX as usize;
 /// 4. Update condition codes
 pub struct Lc3VM {
     /// 16-bit addressable memory space
-    pub memory: [u16; MEMORY_SIZE],
+    pub memory: Memory,
     /// Processor registers and flags
     pub registers: Registers,
 }
@@ -39,7 +35,7 @@ impl Lc3VM {
     /// Creates a new VM in initial state.
     pub fn new() -> Self {
         Self {
-            memory: [0; MEMORY_SIZE],
+            memory: Memory::new(),
             registers: Registers::new(),
         }
     }
@@ -76,7 +72,7 @@ impl Lc3VM {
 
     /// Loads the program `instruction` into the VM at the given memory `address`.
     fn write_memory(&mut self, address: usize, instruction: u16) {
-        self.memory[address] = instruction;
+        self.memory.write(address, instruction);
     }
 
     /// Retrieves a program instruction from the specified memory `address`.
@@ -84,7 +80,7 @@ impl Lc3VM {
         if address == MMappedReg::Kbsr as u16 {
             self.handle_keyboard();
         }
-        self.memory[address as usize]
+        self.memory.read(address as usize)
     }
 
     fn handle_keyboard(&mut self) {

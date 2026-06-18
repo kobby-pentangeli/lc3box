@@ -2,9 +2,9 @@ name: CI
 
 on:
     push:
-        branches: [master, main]
+        branches: [master]
     pull_request:
-        branches: [master, main]
+        branches: [master]
 
 env:
     RUST_BACKTRACE: 1
@@ -26,8 +26,9 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                # Windows excluded from test matrix due to timing sensitivity in network tests.
-                # Windows builds are verified separately below.
+                # The VM's interactive raw-terminal I/O relies on Unix-only
+                # termios/libc, so the full workspace is exercised on Unix here.
+                # The platform-independent kernel is built on Windows below.
                 os: [ubuntu-latest, macos-latest]
                 rust: [stable, nightly]
             fail-fast: false
@@ -40,7 +41,7 @@ jobs:
             - run: cargo test --all-features --all-targets --workspace
 
     windows:
-        name: Windows
+        name: Windows (kernel)
         runs-on: windows-latest
         strategy:
             matrix:
@@ -52,8 +53,10 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust }}
             - uses: Swatinem/rust-cache@v2
-            - run: cargo build --all-features --all-targets --workspace
-            - run: cargo test --all-features --all-targets --workspace
+            # The kernel carries no OS dependencies and must stay portable;
+            # the VM binary is Unix-only and is covered by the Unix matrix.
+            - run: cargo build --all-features --all-targets -p lc3core
+            - run: cargo test --all-features --all-targets -p lc3core
 
     fmt:
         name: Rustfmt

@@ -19,3 +19,4 @@ byteorder.workspace = true
 clap.workspace = true
 libc.workspace = true
 termios.workspace = true
+thiserror.workspace = true

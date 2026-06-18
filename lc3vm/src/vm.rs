@@ -5,7 +5,7 @@ use std::path::Path;
 use byteorder::{BigEndian, ReadBytesExt};
 use lc3core::{KBDR, KBSR, Opcode, TrapVector, sign_extend};
 
-use crate::{Memory, Registers};
+use crate::{Error, Memory, Registers};
 
 /// The main LC-3 emulator.
 ///
@@ -63,11 +63,19 @@ impl Lc3VM {
         Ok(vm)
     }
 
-    pub fn execute_program(&mut self) {
+    /// Runs the loaded program from the current program counter until it halts.
+    ///
+    /// Each iteration fetches the word at the program counter, advances the
+    /// counter (wrapping at the top of the address space), and executes the
+    /// instruction. Returns `Ok(())` once a `HALT` trap is reached, or an
+    /// [`Error`] the moment the machine reaches an instruction it cannot run.
+    pub fn run(&mut self) -> Result<(), Error> {
         loop {
-            let inst = self.read_memory(self.registers.pc);
+            let instruction = self.read_memory(self.registers.pc);
             self.registers.pc = self.registers.pc.wrapping_add(1);
-            self.execute_instruction(inst)
+            if let Flow::Halt = self.step(instruction)? {
+                return Ok(());
+            }
         }
     }
 
@@ -98,13 +106,13 @@ impl Lc3VM {
         }
     }
 
-    /// Executes a single LC-3 instruction.
+    /// Decodes and executes one instruction, reporting how execution proceeds.
     ///
-    /// # Execution flow
-    /// 1. Decode instruction using first 4 bits as opcode
-    /// 2. Dispatch to appropriate instruction handler
-    /// 3. Handle invalid opcodes via VM error reporting
-    fn execute_instruction(&mut self, instruction: u16) {
+    /// Ordinary instructions yield [`Flow::Continue`]; a `HALT` trap yields
+    /// [`Flow::Halt`]. The privileged (`RTI`), reserved, and unknown-trap
+    /// encodings have no defined effect in this user-mode VM, so rather than
+    /// silently advancing past them they stop the machine with an [`Error`].
+    fn step(&mut self, instruction: u16) -> Result<Flow, Error> {
         match Opcode::decode(instruction) {
             Opcode::Br => self.br(instruction),
             Opcode::Add => self.add(instruction),
@@ -119,9 +127,11 @@ impl Lc3VM {
             Opcode::Sti => self.sti(instruction),
             Opcode::Jmp => self.jmp(instruction),
             Opcode::Lea => self.lea(instruction),
-            Opcode::Trap => self.trap(instruction),
-            Opcode::Rti | Opcode::Res => {}
+            Opcode::Trap => return self.trap(instruction),
+            Opcode::Rti => return Err(Error::PrivilegedInstruction(instruction)),
+            Opcode::Res => return Err(Error::ReservedOpcode(instruction)),
         }
+        Ok(Flow::Continue)
     }
 
     /// Branch to a PC-relative address if conditions are met.
@@ -504,8 +514,8 @@ impl Lc3VM {
     /// - 0x23 (IN): Prompt and read character
     /// - 0x24 (PUTSP): Write packed byte string
     /// - 0x25 (HALT): Terminate execution
-    fn trap(&mut self, instruction: u16) {
-        let code = TrapVector::try_from(instruction & 0xFF).expect("invalid trap vector");
+    fn trap(&mut self, instruction: u16) -> Result<Flow, Error> {
+        let code = TrapVector::try_from(instruction & 0xFF).map_err(Error::UnknownTrap)?;
 
         match code {
             TrapVector::Getc => {
@@ -568,11 +578,83 @@ impl Lc3VM {
                 stdout.flush().expect("failed to flush stdout");
             }
 
-            TrapVector::Halt => {
-                println!("\nHALT detected!");
-                io::stdout().flush().expect("failed to flush stdout");
-                std::process::exit(1);
-            }
+            TrapVector::Halt => return Ok(Flow::Halt),
         }
+
+        Ok(Flow::Continue)
+    }
+}
+
+/// How execution should proceed after a single instruction.
+#[derive(Debug, Clone, Copy)]
+enum Flow {
+    /// Continue with the next instruction.
+    Continue,
+    /// Stop: the program reached a `HALT`.
+    Halt,
+}
+
+#[cfg(test)]
+mod tests {
+    use lc3core::{ConditionFlag, PC_START};
+
+    use super::Flow;
+    use crate::{Error, Lc3VM};
+
+    /// Loads `words` consecutively from `PC_START`, ready for [`Lc3VM::run`].
+    fn vm_with(words: &[u16]) -> Lc3VM {
+        let mut vm = Lc3VM::new();
+        for (offset, &word) in words.iter().enumerate() {
+            let address = PC_START.wrapping_add(u16::try_from(offset).expect("program fits"));
+            vm.memory.write(address, word);
+        }
+        vm
+    }
+
+    #[test]
+    fn add_immediate_executes_and_sets_condition_code() {
+        // ADD R0, R0, #5 ; TRAP HALT
+        let mut vm = vm_with(&[0x1025, 0xF025]);
+        assert!(vm.run().is_ok());
+        assert_eq!(vm.registers.get(0), 5);
+        assert_eq!(vm.registers.cond, ConditionFlag::Positive);
+    }
+
+    #[test]
+    fn halt_stops_the_machine_without_exiting_the_process() {
+        let mut vm = vm_with(&[0xF025]);
+        assert!(vm.run().is_ok());
+    }
+
+    #[test]
+    fn ordinary_instruction_continues() {
+        let mut vm = Lc3VM::new();
+        // ADD R0, R0, #0 — a no-op that must let execution continue.
+        assert!(matches!(vm.step(0x1020), Ok(Flow::Continue)));
+    }
+
+    #[test]
+    fn rti_outside_supervisor_mode_is_rejected() {
+        let mut vm = Lc3VM::new();
+        assert!(matches!(
+            vm.step(0x8000),
+            Err(Error::PrivilegedInstruction(0x8000))
+        ));
+    }
+
+    #[test]
+    fn reserved_opcode_is_rejected() {
+        let mut vm = Lc3VM::new();
+        assert!(matches!(
+            vm.step(0xD000),
+            Err(Error::ReservedOpcode(0xD000))
+        ));
+    }
+
+    #[test]
+    fn unknown_trap_vector_is_rejected() {
+        let mut vm = Lc3VM::new();
+        // TRAP xFF is not one of the six standard vectors.
+        assert!(matches!(vm.step(0xF0FF), Err(Error::UnknownTrap(0xFF))));
     }
 }

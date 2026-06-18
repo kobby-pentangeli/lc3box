@@ -17,7 +17,7 @@ The [examples](examples) folder contains some LC-3 compatible assembled programs
 To run any of them, execute
 
 ```sh
-cargo run --bin emulator examples/<program_name>.obj
+cargo run -p lc3vm -- examples/<program_name>.obj
 ```
 
 There's also a `bootstrap.asm` in the [examples](examples/bootstrap.asm). You can copy-paste the code into any Web-based and/or GUI LC-3 assembler to get a `.obj` version that can then be executed by this VM.

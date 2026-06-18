@@ -125,7 +125,7 @@ impl Lc3VM {
 
     /// Branch to a PC-relative address if conditions are met.
     ///
-    /// Tests the condition flags specified by bits [11:9] (N, Z, P):
+    /// Tests the condition flags specified by bits `[11:9]` (N, Z, P):
     /// If any specified flag matches the current condition register state,
     /// jumps to `PC + sign-extended PCOffset9`.
     ///
@@ -137,8 +137,8 @@ impl Lc3VM {
     /// │      0000     │ N │ Z │ P │             PCOffset9             │
     /// └───────────────┴───┴───┴───┴───────────────────────────────────┘
     /// ```
-    /// - Bits [11:9]: Condition flags (1 = test, 0 = ignore)
-    /// - Bits [8:0]: 9-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Condition flags (1 = test, 0 = ignore)
+    /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
     fn br(&mut self, instruction: u16) {
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
         let cond = (instruction >> 9) & 0x7;
@@ -203,8 +203,8 @@ impl Lc3VM {
     /// │      0010     │     DR    │            PCOffset9              │
     /// └───────────────┴───────────┴───────────────────────────────────┘
     /// ```
-    /// - Bits [11:9]: Destination register (DR)
-    /// - Bits [8:0]: 9-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Destination register (DR)
+    /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
     fn ld(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
@@ -228,8 +228,8 @@ impl Lc3VM {
     /// │      0011     │     SR    │            PCOffset9              │
     /// └───────────────┴───────────┴───────────────────────────────────┘
     /// ```
-    /// - Bits [11:9]: Source register (SR)
-    /// - Bits [8:0]: 9-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Source register (SR)
+    /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
     fn st(&mut self, instruction: u16) {
         let sr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
@@ -259,11 +259,11 @@ impl Lc3VM {
     /// │      0100     │ 0 │   00  │ BaseR │           00000           │
     /// └───────────────┴───┴───────┴───────┴───────────────────────────┘
     /// ```
-    /// - Bit [11]: Mode selector (1 = PC-relative, 0 = Base register)
+    /// - Bit `[11]`: Mode selector (1 = PC-relative, 0 = Base register)
     /// - PC-relative mode:
-    ///   - Bits [10:0]: 11-bit signed offset (sign-extended to 16 bits)
+    ///   - Bits `[10:0]`: 11-bit signed offset (sign-extended to 16 bits)
     /// - Base register mode:
-    ///   - Bits [8:6]: 3-bit base register identifier
+    ///   - Bits `[8:6]`: 3-bit base register identifier
     fn jsr(&mut self, instruction: u16) {
         let base_reg = (instruction >> 6) & 0x7;
         let pc_offset = sign_extend(instruction & 0x7FF, 11);
@@ -333,9 +333,9 @@ impl Lc3VM {
     /// │      0110     │     DR    │     BaseR     │     Offset6       │
     /// └───────────────┴───────────┴───────────────┴───────────────────┘
     /// ```
-    /// - Bits [11:9]: Destination register (DR)
-    /// - Bits [8:6]: Base register (BaseR)
-    /// - Bits [5:0]: 6-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Destination register (DR)
+    /// - Bits `[8:6]`: Base register (BaseR)
+    /// - Bits `[5:0]`: 6-bit signed offset (sign-extended to 16 bits)
     fn ldr(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0x7;
         let base_reg = (instruction >> 6) & 0x7;
@@ -360,9 +360,9 @@ impl Lc3VM {
     /// │      0111     │     SR    │   BaseR   │        Offset6        │
     /// └───────────────┴───────────┴───────────┴───────────────────────┘
     /// ```
-    /// - Bits [11:9]: Source register (SR)
-    /// - Bits [8:6]: Base register (BaseR)
-    /// - Bits [5:0]: 6-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Source register (SR)
+    /// - Bits `[8:6]`: Base register (BaseR)
+    /// - Bits `[5:0]`: 6-bit signed offset (sign-extended to 16 bits)
     fn str(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0x7;
         let base_reg = (instruction >> 6) & 0x7;
@@ -382,8 +382,8 @@ impl Lc3VM {
     /// │      1001     │     DR    │     SR    │ 1 │       1111        │
     /// └───────────────┴───────────┴───────────┴───┴───────────────────┘
     /// ```
-    /// - Bits [11:9]: Destination register (DR)
-    /// - Bits [8:6]: Source register (SR)
+    /// - Bits `[11:9]`: Destination register (DR)
+    /// - Bits `[8:6]`: Source register (SR)
     fn not(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0x7;
         let sr = (instruction >> 6) & 0x7;
@@ -405,8 +405,8 @@ impl Lc3VM {
     /// │      1010     │     DR    │            PCOffset9              │
     /// └───────────────┴───────────┴───────────────────────────────────┘
     /// ```
-    /// - Bits [11:9]: Destination register (DR)
-    /// - Bits [8:0]: 9-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Destination register (DR)
+    /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
     fn ldi(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
@@ -430,8 +430,8 @@ impl Lc3VM {
     /// │      1011     │     SR    │            PCOffset9              │
     /// └───────────────┴───────────┴───────────────────────────────────┘
     /// ```
-    /// - Bits [11:9]: Source register (SR)
-    /// - Bits [8:0]: 9-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Source register (SR)
+    /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
     fn sti(&mut self, instruction: u16) {
         let sr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
@@ -476,8 +476,8 @@ impl Lc3VM {
     /// │      1110     │     DR    │            PCOffset9              │
     /// └───────────────┴───────────┴───────────────────────────────────┘
     /// ```
-    /// - Bits [11:9]: Destination register (DR)
-    /// - Bits [8:0]: 9-bit signed offset (sign-extended to 16 bits)
+    /// - Bits `[11:9]`: Destination register (DR)
+    /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
     fn lea(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);

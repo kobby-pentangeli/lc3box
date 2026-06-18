@@ -1,12 +1,25 @@
 [workspace]
 resolver = "2"
-members = ["lc3vm"]
+members = ["lc3core", "lc3vm"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
+rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/kobby-pentangeli/lc3box"
 readme = "README.md"
 
 [workspace.dependencies]
+lc3core = { path = "lc3core", version = "0.2.0" }
+
+anyhow = "1"
+byteorder = "1.5"
+clap = { version = "4.6", features = ["derive"] }
+libc = "0.2"
+termios = "0.3"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1

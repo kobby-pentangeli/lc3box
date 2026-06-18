@@ -3,8 +3,9 @@ use std::io::{self, BufReader, Read as _, Write as _};
 use std::path::Path;
 
 use byteorder::{BigEndian, ReadBytesExt};
+use lc3core::{KBDR, KBSR, Opcode, TrapVector, sign_extend};
 
-use crate::{MEMORY_SIZE, MMappedReg, Memory, Opcode, Registers, Trapcode};
+use crate::{Memory, Registers};
 
 /// The main LC-3 emulator.
 ///
@@ -46,13 +47,13 @@ impl Lc3VM {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
         let base_address = reader.read_u16::<BigEndian>()?;
-        let mut address = base_address as usize;
+        let mut address = base_address;
 
         loop {
             match reader.read_u16::<BigEndian>() {
                 Ok(instruction) => {
                     vm.write_memory(address, instruction);
-                    address += 1;
+                    address = address.wrapping_add(1);
                 }
                 Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
                 Err(e) => return Err(e.into()),
@@ -63,24 +64,24 @@ impl Lc3VM {
     }
 
     pub fn execute_program(&mut self) {
-        while self.registers.pc < MEMORY_SIZE as u16 {
+        loop {
             let inst = self.read_memory(self.registers.pc);
-            self.registers.pc += 1;
+            self.registers.pc = self.registers.pc.wrapping_add(1);
             self.execute_instruction(inst)
         }
     }
 
     /// Loads the program `instruction` into the VM at the given memory `address`.
-    fn write_memory(&mut self, address: usize, instruction: u16) {
+    fn write_memory(&mut self, address: u16, instruction: u16) {
         self.memory.write(address, instruction);
     }
 
     /// Retrieves a program instruction from the specified memory `address`.
     fn read_memory(&mut self, address: u16) -> u16 {
-        if address == MMappedReg::Kbsr as u16 {
+        if address == KBSR {
             self.handle_keyboard();
         }
-        self.memory.read(address as usize)
+        self.memory.read(address)
     }
 
     fn handle_keyboard(&mut self) {
@@ -90,10 +91,10 @@ impl Lc3VM {
             .expect("error reading from stdin");
 
         if buf[0] != 0 {
-            self.write_memory(MMappedReg::Kbsr as usize, 1 << 15);
-            self.write_memory(MMappedReg::Kbdr as usize, buf[0] as u16);
+            self.write_memory(KBSR, 1 << 15);
+            self.write_memory(KBDR, u16::from(buf[0]));
         } else {
-            self.write_memory(MMappedReg::Kbsr as usize, 0);
+            self.write_memory(KBSR, 0);
         }
     }
 
@@ -104,22 +105,22 @@ impl Lc3VM {
     /// 2. Dispatch to appropriate instruction handler
     /// 3. Handle invalid opcodes via VM error reporting
     fn execute_instruction(&mut self, instruction: u16) {
-        match Opcode::get(instruction) {
-            Some(Opcode::Br) => self.br(instruction),
-            Some(Opcode::Add) => self.add(instruction),
-            Some(Opcode::Ld) => self.ld(instruction),
-            Some(Opcode::St) => self.st(instruction),
-            Some(Opcode::Jsr) => self.jsr(instruction),
-            Some(Opcode::And) => self.and(instruction),
-            Some(Opcode::Ldr) => self.ldr(instruction),
-            Some(Opcode::Str) => self.str(instruction),
-            Some(Opcode::Not) => self.not(instruction),
-            Some(Opcode::Ldi) => self.ldi(instruction),
-            Some(Opcode::Sti) => self.sti(instruction),
-            Some(Opcode::Jmp) => self.jmp(instruction),
-            Some(Opcode::Lea) => self.lea(instruction),
-            Some(Opcode::Trap) => self.trap(instruction),
-            _ => {}
+        match Opcode::decode(instruction) {
+            Opcode::Br => self.br(instruction),
+            Opcode::Add => self.add(instruction),
+            Opcode::Ld => self.ld(instruction),
+            Opcode::St => self.st(instruction),
+            Opcode::Jsr => self.jsr(instruction),
+            Opcode::And => self.and(instruction),
+            Opcode::Ldr => self.ldr(instruction),
+            Opcode::Str => self.str(instruction),
+            Opcode::Not => self.not(instruction),
+            Opcode::Ldi => self.ldi(instruction),
+            Opcode::Sti => self.sti(instruction),
+            Opcode::Jmp => self.jmp(instruction),
+            Opcode::Lea => self.lea(instruction),
+            Opcode::Trap => self.trap(instruction),
+            Opcode::Rti | Opcode::Res => {}
         }
     }
 
@@ -141,12 +142,11 @@ impl Lc3VM {
     /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
     fn br(&mut self, instruction: u16) {
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
-        let cond = (instruction >> 9) & 0x7;
+        let nzp = (instruction >> 9) & 0x7;
 
-        if cond & self.registers.cond != 0 {
-            // This is temporarily declared as `u32` to prevent overflow.
-            let val = self.registers.pc as u32 + pc_offset as u32;
-            self.registers.pc = val as u16;
+        if self.registers.cond.matches(nzp) {
+            // PC-relative targets wrap within the 16-bit address space.
+            self.registers.pc = self.registers.pc.wrapping_add(pc_offset);
         }
     }
 
@@ -178,16 +178,19 @@ impl Lc3VM {
         let sr1 = (instruction >> 6) & 0x7;
         let imm_flag = (instruction >> 5) & 0x1;
 
-        if imm_flag == 1 {
+        // Two's-complement addition is modular over 16 bits.
+        let value = if imm_flag == 1 {
             let imm5 = sign_extend(instruction & 0x1F, 5);
-            let val = imm5 as u32 + self.registers.get(sr1) as u32;
-            self.registers.update(dr, val as u16);
+            self.registers.get(sr1).wrapping_add(imm5)
         } else {
             let sr2 = instruction & 0x7;
-            let val = self.registers.get(sr1) as u32 + self.registers.get(sr2) as u32;
-            self.registers.update(dr, val as u16);
-        }
-        self.registers.update_cond_register(dr);
+            self.registers
+                .get(sr1)
+                .wrapping_add(self.registers.get(sr2))
+        };
+
+        self.registers.set(dr, value);
+        self.registers.update_flags(dr);
     }
 
     /// Loads a value from memory into a register using PC-relative addressing.
@@ -208,11 +211,11 @@ impl Lc3VM {
     fn ld(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
-        let addr = pc_offset as u32 + self.registers.pc as u32;
 
-        let val = self.read_memory(addr as u16);
-        self.registers.update(dr, val);
-        self.registers.update_cond_register(dr);
+        let address = self.registers.pc.wrapping_add(pc_offset);
+        let value = self.read_memory(address);
+        self.registers.set(dr, value);
+        self.registers.update_flags(dr);
     }
 
     /// Stores a register value to memory using PC-relative addressing.
@@ -234,8 +237,8 @@ impl Lc3VM {
         let sr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
-        let val = (self.registers.pc as u32 + pc_offset as u32) as u16;
-        self.write_memory(val as usize, self.registers.get(sr));
+        let address = self.registers.pc.wrapping_add(pc_offset);
+        self.write_memory(address, self.registers.get(sr));
     }
 
     /// Jumps to a subroutine, saving the return address in R7.
@@ -265,20 +268,19 @@ impl Lc3VM {
     /// - Base register mode:
     ///   - Bits `[8:6]`: 3-bit base register identifier
     fn jsr(&mut self, instruction: u16) {
-        let base_reg = (instruction >> 6) & 0x7;
         let pc_offset = sign_extend(instruction & 0x7FF, 11);
-        let jsr_flag = (instruction >> 11) & 1;
+        // Read the base register before R7 is overwritten, so `JSRR R7` jumps to
+        // the original base value rather than the return address.
+        let base = self.registers.get((instruction >> 6) & 0x7);
+        let use_offset = (instruction >> 11) & 1 != 0;
+        let return_address = self.registers.pc;
 
-        self.registers.r7 = self.registers.pc;
-
-        if jsr_flag != 0 {
-            // JSR case, the address to jump to is computed from PCOffset11
-            let val = (self.registers.pc as u32 + pc_offset as u32) as u16;
-            self.registers.pc = val;
+        self.registers.pc = if use_offset {
+            return_address.wrapping_add(pc_offset)
         } else {
-            // JSSR case, address to jump to lives in the BaseR
-            self.registers.pc = self.registers.get(base_reg);
-        }
+            base
+        };
+        self.registers.set(7, return_address);
     }
 
     /// Performs bitwise AND, storing the result in a destination register.
@@ -309,15 +311,16 @@ impl Lc3VM {
         let sr1 = (instruction >> 6) & 0x7;
         let imm_flag = (instruction >> 5) & 0x1;
 
-        if imm_flag == 1 {
+        let value = if imm_flag == 1 {
             let imm5 = sign_extend(instruction & 0x1F, 5);
-            self.registers.update(dr, self.registers.get(sr1) & imm5);
+            self.registers.get(sr1) & imm5
         } else {
             let sr2 = instruction & 0x7;
-            self.registers
-                .update(dr, self.registers.get(sr1) & self.registers.get(sr2));
-        }
-        self.registers.update_cond_register(dr);
+            self.registers.get(sr1) & self.registers.get(sr2)
+        };
+
+        self.registers.set(dr, value);
+        self.registers.update_flags(dr);
     }
 
     /// Loads a value from memory using base+offset addressing.
@@ -341,10 +344,10 @@ impl Lc3VM {
         let base_reg = (instruction >> 6) & 0x7;
         let offset = sign_extend(instruction & 0x3F, 6);
 
-        let val = (self.registers.get(base_reg) as u32 + offset as u32) as u16;
-        let val = self.read_memory(val);
-        self.registers.update(dr, val);
-        self.registers.update_cond_register(dr);
+        let address = self.registers.get(base_reg).wrapping_add(offset);
+        let value = self.read_memory(address);
+        self.registers.set(dr, value);
+        self.registers.update_flags(dr);
     }
 
     /// Stores a register value to memory using base+offset addressing.
@@ -364,12 +367,12 @@ impl Lc3VM {
     /// - Bits `[8:6]`: Base register (BaseR)
     /// - Bits `[5:0]`: 6-bit signed offset (sign-extended to 16 bits)
     fn str(&mut self, instruction: u16) {
-        let dr = (instruction >> 9) & 0x7;
+        let sr = (instruction >> 9) & 0x7;
         let base_reg = (instruction >> 6) & 0x7;
         let offset = sign_extend(instruction & 0x3F, 6);
 
-        let val = (self.registers.get(base_reg) as u32 + offset as u32) as u16;
-        self.write_memory(val as usize, self.registers.get(dr));
+        let address = self.registers.get(base_reg).wrapping_add(offset);
+        self.write_memory(address, self.registers.get(sr));
     }
 
     /// Performs bitwise NOT (one's complement) on a register value.
@@ -388,8 +391,8 @@ impl Lc3VM {
         let dr = (instruction >> 9) & 0x7;
         let sr = (instruction >> 6) & 0x7;
 
-        self.registers.update(dr, !self.registers.get(sr));
-        self.registers.update_cond_register(dr);
+        self.registers.set(dr, !self.registers.get(sr));
+        self.registers.update_flags(dr);
     }
 
     /// Loads a value from memory using indirect addressing.
@@ -411,10 +414,11 @@ impl Lc3VM {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
-        let init_addr = self.read_memory(self.registers.pc + pc_offset);
-        let val = self.read_memory(init_addr);
-        self.registers.update(dr, val);
-        self.registers.update_cond_register(dr);
+        let pointer = self.registers.pc.wrapping_add(pc_offset);
+        let address = self.read_memory(pointer);
+        let value = self.read_memory(address);
+        self.registers.set(dr, value);
+        self.registers.update_flags(dr);
     }
 
     /// Stores a register value to memory using indirect addressing.
@@ -436,9 +440,9 @@ impl Lc3VM {
         let sr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
-        let val = (self.registers.pc as u32 + pc_offset as u32) as u16;
-        let addr = self.read_memory(val) as usize;
-        self.write_memory(addr, self.registers.get(sr));
+        let pointer = self.registers.pc.wrapping_add(pc_offset);
+        let address = self.read_memory(pointer);
+        self.write_memory(address, self.registers.get(sr));
     }
 
     /// Jumps to the address contained in a base register (JMP)
@@ -460,8 +464,7 @@ impl Lc3VM {
     /// └───────────────┴───────────┴───────────┴───────────────────────┘
     /// ```
     fn jmp(&mut self, instruction: u16) {
-        // `base_reg` will either be an arbitrary register or the register 7 (`111`)
-        // in which case it would be the `RET` operation
+        // `base_reg` is an arbitrary register, or R7 (`111`) for the `RET` case.
         let base_reg = (instruction >> 6) & 0x7;
         self.registers.pc = self.registers.get(base_reg);
     }
@@ -482,9 +485,9 @@ impl Lc3VM {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
-        let val = (self.registers.pc as u32 + pc_offset as u32) as u16;
-        self.registers.update(dr, val);
-        self.registers.update_cond_register(dr);
+        let address = self.registers.pc.wrapping_add(pc_offset);
+        self.registers.set(dr, address);
+        self.registers.update_flags(dr);
     }
 
     /// Executes a trap service routine for I/O operations.
@@ -502,39 +505,39 @@ impl Lc3VM {
     /// - 0x24 (PUTSP): Write packed byte string
     /// - 0x25 (HALT): Terminate execution
     fn trap(&mut self, instruction: u16) {
-        let code = Trapcode::try_from(instruction & 0xFF).expect("invalid trapcode");
+        let code = TrapVector::try_from(instruction & 0xFF).expect("invalid trap vector");
 
         match code {
-            Trapcode::Getc => {
+            TrapVector::Getc => {
                 let mut buf = [0; 1];
                 io::stdin()
                     .read_exact(&mut buf)
                     .expect("error reading from stdin");
-                self.registers.r0 = buf[0] as u16;
+                self.registers.set(0, u16::from(buf[0]));
             }
 
-            Trapcode::Out => {
+            TrapVector::Out => {
                 let mut stdout = io::stdout().lock();
-                let c = self.registers.r0 as u8 as char;
+                let c = self.registers.get(0) as u8 as char;
                 write!(stdout, "{c}").expect("failed to write to stdout");
                 stdout.flush().expect("failed to flush stdout");
             }
 
-            Trapcode::Puts => {
+            TrapVector::Puts => {
                 let mut stdout = io::stdout().lock();
-                let mut addr = self.registers.r0;
+                let mut addr = self.registers.get(0);
                 loop {
                     let c = self.read_memory(addr);
                     if c == 0 {
                         break;
                     }
                     write!(stdout, "{}", c as u8 as char).expect("failed to write to stdout");
-                    addr += 1;
+                    addr = addr.wrapping_add(1);
                 }
                 stdout.flush().expect("failed to flush stdout");
             }
 
-            Trapcode::In => {
+            TrapVector::In => {
                 print!("Enter a character: ");
                 io::stdout().flush().expect("failed to flush stdout");
 
@@ -543,12 +546,12 @@ impl Lc3VM {
                     .read_exact(&mut buf)
                     .expect("error reading from stdin");
 
-                self.registers.update(0, buf[0] as u16);
+                self.registers.set(0, u16::from(buf[0]));
             }
 
-            Trapcode::Putsp => {
+            TrapVector::Putsp => {
                 let mut stdout = io::stdout().lock();
-                let mut addr = self.registers.r0;
+                let mut addr = self.registers.get(0);
                 loop {
                     let c = self.read_memory(addr);
                     if c == 0 {
@@ -560,37 +563,16 @@ impl Lc3VM {
                     if c2 != '\0' {
                         write!(stdout, "{c2}").expect("failed to write to stdout");
                     }
-                    addr += 1;
+                    addr = addr.wrapping_add(1);
                 }
                 stdout.flush().expect("failed to flush stdout");
             }
 
-            Trapcode::Halt => {
+            TrapVector::Halt => {
                 println!("\nHALT detected!");
                 io::stdout().flush().expect("failed to flush stdout");
                 std::process::exit(1);
             }
         }
     }
-}
-
-/// Increases `x`'s bit count to 16 while preserving its sign.
-///
-/// If `x` is a signed positive number, we left-pad with zeroes.
-/// If `x` is a signed negative number, we left-pad with ones.
-///
-/// `bit_count` is the original number of bits that `x` had.
-///
-/// See [Sign extension](https://en.wikipedia.org/wiki/Sign_extension)
-fn sign_extend(mut x: u16, bit_count: u8) -> u16 {
-    // If the sign bit of `x` is nonzero, then `x` is a
-    // signed negative number, so we left-pad with
-    // (16 - bit_count) ones
-    if (x >> (bit_count - 1)) & 1 != 0 {
-        x |= 0xFFFF << bit_count;
-    }
-
-    // If the sign bit is 0, return as is,
-    // since it's already left-padded with zeroes
-    x
 }

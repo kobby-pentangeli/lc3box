@@ -12,6 +12,8 @@ name = "lc3vm"
 path = "src/main.rs"
 
 [dependencies]
+lc3core.workspace = true
+
 anyhow.workspace = true
 byteorder.workspace = true
 clap.workspace = true

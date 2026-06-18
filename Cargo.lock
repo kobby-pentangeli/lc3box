@@ -133,6 +133,7 @@ dependencies = [
  "anyhow",
  "byteorder",
  "clap",
+ "lc3core",
  "libc",
  "termios",
 ]

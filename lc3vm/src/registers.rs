@@ -1,23 +1,17 @@
-/// Memory address of the program counter (PC) register.
-const PC_START: u16 = 0x3000;
+use lc3core::{ConditionFlag, GP_REGISTER_COUNT, PC_START};
 
-/// Register number 9 is the `cond` register.
-const RCOND_INDEX: u16 = 9;
-
-/// LC-3 has 10 registers: 8 general-purpose registers (`r0`...`r7`),
-/// 1 program counter (`pc`) register, and one condition flag (`cond`) register.
-/// The program counter stores a memory address of the next instruction to be executed.
+/// The processor's register state: eight general-purpose registers, the program
+/// counter, and the current condition code.
+///
+/// General-purpose registers are addressed by the 3-bit register field of an
+/// instruction. Masking that field to three bits keeps every index within the
+/// fixed array, so access is total and never panics.
 pub struct Registers {
-    pub r0: u16,
-    pub r1: u16,
-    pub r2: u16,
-    pub r3: u16,
-    pub r4: u16,
-    pub r5: u16,
-    pub r6: u16,
-    pub r7: u16,
+    gpr: [u16; GP_REGISTER_COUNT],
+    /// The program counter: the address of the next instruction to fetch.
     pub pc: u16,
-    pub cond: u16,
+    /// The condition code set by the most recent register-writing instruction.
+    pub cond: ConditionFlag,
 }
 
 impl Default for Registers {
@@ -27,109 +21,53 @@ impl Default for Registers {
 }
 
 impl Registers {
-    /// Initializes all 10 registers with default values.
-    /// The program counter starts at 0x3000 (`PC_START`).
+    /// Creates the initial register state: general-purpose registers cleared,
+    /// the program counter at [`PC_START`], and a zero condition code.
     pub fn new() -> Self {
         Self {
-            r0: 0,
-            r1: 0,
-            r2: 0,
-            r3: 0,
-            r4: 0,
-            r5: 0,
-            r6: 0,
-            r7: 0,
+            gpr: [0; GP_REGISTER_COUNT],
             pc: PC_START,
-            cond: 0,
+            cond: ConditionFlag::Zero,
         }
     }
 
-    /// Writes a `value` to a register given its `address` (index).
-    pub fn update(&mut self, address: u16, value: u16) {
-        match address {
-            0 => self.r0 = value,
-            1 => self.r1 = value,
-            2 => self.r2 = value,
-            3 => self.r3 = value,
-            4 => self.r4 = value,
-            5 => self.r5 = value,
-            6 => self.r6 = value,
-            7 => self.r7 = value,
-            8 => self.pc = value,
-            9 => self.cond = value,
-            _ => panic!("Index out of bounds"),
-        }
+    /// Reads general-purpose register `reg`, identified by its 3-bit field.
+    pub fn get(&self, reg: u16) -> u16 {
+        self.gpr[usize::from(reg) & 0x7]
     }
 
-    /// Reads the value at the given address (`index`) of a register.
-    pub fn get(&self, address: u16) -> u16 {
-        match address {
-            0 => self.r0,
-            1 => self.r1,
-            2 => self.r2,
-            3 => self.r3,
-            4 => self.r4,
-            5 => self.r5,
-            6 => self.r6,
-            7 => self.r7,
-            8 => self.pc,
-            9 => self.cond,
-            _ => panic!("Index out of bounds"),
-        }
+    /// Writes `value` to general-purpose register `reg`, identified by its
+    /// 3-bit field.
+    pub fn set(&mut self, reg: u16, value: u16) {
+        self.gpr[usize::from(reg) & 0x7] = value;
     }
 
-    /// Updates the condition register (`self.cond`) based on the last
-    /// operation on a given general-purpose (`r`) register.
-    pub fn update_cond_register(&mut self, r: u16) {
-        if self.get(r) == 0 {
-            self.update(RCOND_INDEX, ConditionFlag::Zro as u16);
-        } else if (self.get(r) >> 15) != 0 {
-            // a 1 for MSB indicates negative
-            self.update(RCOND_INDEX, ConditionFlag::Neg as u16);
-        } else {
-            self.update(RCOND_INDEX, ConditionFlag::Pos as u16);
-        }
+    /// Updates the condition code from the value now held in register `reg`.
+    pub fn update_flags(&mut self, reg: u16) {
+        self.cond = ConditionFlag::from_result(self.get(reg));
     }
 }
 
-/// The `RCOND` register stores condition flags that represent information about
-/// the most recent computation. It's used for checking logical conditions.
-/// The LC-3 uses only 3 condition flags which indicate
-/// the sign of the previous computation.
-///
-/// In binary, with 3 bits only:
-/// - 1 == 001
-/// - 2 == 010
-/// - 4 == 100
-///
-/// So we're essentially playing with the possible conditional flags settings!
-/// Because the condition instruction will be `nzp` (neg, zero, pos)
-/// and only one can be set at a time, it will either be 001 (positive set `nz1`),
-/// 010 (zero set, `n1p`), and 100 (negative set, `1zp`).
-/// These three binary values are 1, 2, and 4 respectively, in decimal!
-pub enum ConditionFlag {
-    /// Positive flag set, i.e., `nz1` for the `nzp` instruction.
-    Pos = 1 << 0, // Positive
+#[cfg(test)]
+mod tests {
+    use lc3core::ConditionFlag;
 
-    /// Zero flag set, i.e., `n1p` for the `nzp` instruction.
-    Zro = 1 << 1,
+    use super::Registers;
 
-    /// Negative flag set, i.e., `1zp` for the `nzp` instruction.
-    Neg = 1 << 2,
-}
+    #[test]
+    fn flags_follow_the_sign_of_the_written_register() {
+        let mut registers = Registers::new();
 
-/// Memory-mapped register.
-///
-/// Memory-mapped I/O are handled by load/store (LDI/STI, LDR/STR) instructions
-/// using memory addresses to designate each I/O device register.
-/// Addresses xFE00 through xFFFF have been allocated to represent the addresses of I/O devices.
-///
-/// LC-3 has two memory-mapped registers that need to be implemented.
-/// They are the _keyboard status register_ (KBSR) and _keyboard data register_ (KBDR).
-/// The KBSR indicates whether a key has been pressed, and the KBDR identifies which key was pressed.
-pub enum MMappedReg {
-    /// Indicates whether a key has been pressed
-    Kbsr = 0xFE00,
-    /// Identifies which key was pressed
-    Kbdr = 0xFE02,
+        registers.set(3, 0);
+        registers.update_flags(3);
+        assert_eq!(registers.cond, ConditionFlag::Zero);
+
+        registers.set(3, 0x8000);
+        registers.update_flags(3);
+        assert_eq!(registers.cond, ConditionFlag::Negative);
+
+        registers.set(3, 0x0001);
+        registers.update_flags(3);
+        assert_eq!(registers.cond, ConditionFlag::Positive);
+    }
 }

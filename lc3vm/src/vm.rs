@@ -1,20 +1,18 @@
-use std::fs::File;
-use std::io::{self, BufReader, Read as _, Write as _};
+use std::io::{self, Write as _};
 use std::path::Path;
 
-use byteorder::{BigEndian, ReadBytesExt};
-use lc3core::{KBDR, KBSR, Opcode, TrapVector, sign_extend};
+use lc3core::{KBDR, KBSR, ObjectFile, Opcode, TrapVector, sign_extend};
 
-use crate::{Error, Memory, Registers};
+use crate::{Error, Memory, Registers, console};
 
 /// The main LC-3 emulator.
 ///
-/// # Memory Architecture
+/// ## Memory Architecture
 /// - 16-bit address space (0x0000-0xFFFF)
 /// - First 0xFE00 addresses: general purpose memory
 /// - 0xFE00-0xFFFF: Memory-mapped I/O registers
 ///
-/// # Execution Flow
+/// ## Execution Flow
 /// 1. Fetch instruction from PC
 /// 2. Decode opcode
 /// 3. Execute instruction
@@ -41,25 +39,30 @@ impl Lc3VM {
         }
     }
 
-    pub fn init_from_program(path: &Path) -> anyhow::Result<Self> {
+    /// Loads the LC-3 object file at `path` and returns a VM ready to run it.
+    ///
+    /// Returns [`Error::Io`] if the file cannot be read, [`Error::Object`] if
+    /// its bytes are not a valid `.obj` image, and [`Error::ProgramOutOfRange`]
+    /// if the image would not fit in memory.
+    pub fn init_from_program(path: &Path) -> Result<Self, Error> {
+        Self::load(&ObjectFile::from_be_bytes(&std::fs::read(path)?)?)
+    }
+
+    /// Builds a VM with `image` loaded at its origin and the program counter set
+    /// there, ready to [`run`](Self::run).
+    ///
+    /// Returns [`Error::ProgramOutOfRange`] if the image's words would extend
+    /// past the top of the address space.
+    fn load(image: &ObjectFile) -> Result<Self, Error> {
         let mut vm = Self::new();
-
-        let file = File::open(path)?;
-        let mut reader = BufReader::new(file);
-        let base_address = reader.read_u16::<BigEndian>()?;
-        let mut address = base_address;
-
-        loop {
-            match reader.read_u16::<BigEndian>() {
-                Ok(instruction) => {
-                    vm.write_memory(address, instruction);
-                    address = address.wrapping_add(1);
-                }
-                Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
-                Err(e) => return Err(e.into()),
-            }
-        }
-
+        vm.memory
+            .region_mut(image.origin, image.words.len())
+            .ok_or(Error::ProgramOutOfRange {
+                origin: image.origin,
+                words: image.words.len(),
+            })?
+            .copy_from_slice(&image.words);
+        vm.registers.pc = image.origin;
         Ok(vm)
     }
 
@@ -71,7 +74,7 @@ impl Lc3VM {
     /// [`Error`] the moment the machine reaches an instruction it cannot run.
     pub fn run(&mut self) -> Result<(), Error> {
         loop {
-            let instruction = self.read_memory(self.registers.pc);
+            let instruction = self.read_memory(self.registers.pc)?;
             self.registers.pc = self.registers.pc.wrapping_add(1);
             if let Flow::Halt = self.step(instruction)? {
                 return Ok(());
@@ -79,31 +82,28 @@ impl Lc3VM {
         }
     }
 
-    /// Loads the program `instruction` into the VM at the given memory `address`.
-    fn write_memory(&mut self, address: u16, instruction: u16) {
-        self.memory.write(address, instruction);
-    }
-
-    /// Retrieves a program instruction from the specified memory `address`.
-    fn read_memory(&mut self, address: u16) -> u16 {
+    /// Reads the word at `address`, polling the keyboard first when `address`
+    /// is the keyboard status register so a program sees fresh input.
+    fn read_memory(&mut self, address: u16) -> Result<u16, Error> {
         if address == KBSR {
-            self.handle_keyboard();
+            self.poll_keyboard()?;
         }
-        self.memory.read(address)
+        Ok(self.memory.read(address))
     }
 
-    fn handle_keyboard(&mut self) {
-        let mut buf = [0; 1];
-        io::stdin()
-            .read_exact(&mut buf)
-            .expect("error reading from stdin");
-
-        if buf[0] != 0 {
-            self.write_memory(KBSR, 1 << 15);
-            self.write_memory(KBDR, u16::from(buf[0]));
-        } else {
-            self.write_memory(KBSR, 0);
+    /// Refreshes the keyboard registers from the console without blocking.
+    ///
+    /// A waiting key sets the ready bit of `KBSR` and lands in `KBDR`; with no
+    /// key ready, `KBSR` is cleared, so a polling program simply tries again.
+    fn poll_keyboard(&mut self) -> Result<(), Error> {
+        match console::poll_char()? {
+            Some(key) => {
+                self.memory.write(KBSR, 1 << 15);
+                self.memory.write(KBDR, u16::from(key));
+            }
+            None => self.memory.write(KBSR, 0),
         }
+        Ok(())
     }
 
     /// Decodes and executes one instruction, reporting how execution proceeds.
@@ -116,15 +116,15 @@ impl Lc3VM {
         match Opcode::decode(instruction) {
             Opcode::Br => self.br(instruction),
             Opcode::Add => self.add(instruction),
-            Opcode::Ld => self.ld(instruction),
+            Opcode::Ld => self.ld(instruction)?,
             Opcode::St => self.st(instruction),
             Opcode::Jsr => self.jsr(instruction),
             Opcode::And => self.and(instruction),
-            Opcode::Ldr => self.ldr(instruction),
+            Opcode::Ldr => self.ldr(instruction)?,
             Opcode::Str => self.str(instruction),
             Opcode::Not => self.not(instruction),
-            Opcode::Ldi => self.ldi(instruction),
-            Opcode::Sti => self.sti(instruction),
+            Opcode::Ldi => self.ldi(instruction)?,
+            Opcode::Sti => self.sti(instruction)?,
             Opcode::Jmp => self.jmp(instruction),
             Opcode::Lea => self.lea(instruction),
             Opcode::Trap => return self.trap(instruction),
@@ -218,14 +218,15 @@ impl Lc3VM {
     /// ```
     /// - Bits `[11:9]`: Destination register (DR)
     /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
-    fn ld(&mut self, instruction: u16) {
+    fn ld(&mut self, instruction: u16) -> Result<(), Error> {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
         let address = self.registers.pc.wrapping_add(pc_offset);
-        let value = self.read_memory(address);
+        let value = self.read_memory(address)?;
         self.registers.set(dr, value);
         self.registers.update_flags(dr);
+        Ok(())
     }
 
     /// Stores a register value to memory using PC-relative addressing.
@@ -248,7 +249,7 @@ impl Lc3VM {
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
         let address = self.registers.pc.wrapping_add(pc_offset);
-        self.write_memory(address, self.registers.get(sr));
+        self.memory.write(address, self.registers.get(sr));
     }
 
     /// Jumps to a subroutine, saving the return address in R7.
@@ -349,15 +350,16 @@ impl Lc3VM {
     /// - Bits `[11:9]`: Destination register (DR)
     /// - Bits `[8:6]`: Base register (BaseR)
     /// - Bits `[5:0]`: 6-bit signed offset (sign-extended to 16 bits)
-    fn ldr(&mut self, instruction: u16) {
+    fn ldr(&mut self, instruction: u16) -> Result<(), Error> {
         let dr = (instruction >> 9) & 0x7;
         let base_reg = (instruction >> 6) & 0x7;
         let offset = sign_extend(instruction & 0x3F, 6);
 
         let address = self.registers.get(base_reg).wrapping_add(offset);
-        let value = self.read_memory(address);
+        let value = self.read_memory(address)?;
         self.registers.set(dr, value);
         self.registers.update_flags(dr);
+        Ok(())
     }
 
     /// Stores a register value to memory using base+offset addressing.
@@ -382,7 +384,7 @@ impl Lc3VM {
         let offset = sign_extend(instruction & 0x3F, 6);
 
         let address = self.registers.get(base_reg).wrapping_add(offset);
-        self.write_memory(address, self.registers.get(sr));
+        self.memory.write(address, self.registers.get(sr));
     }
 
     /// Performs bitwise NOT (one's complement) on a register value.
@@ -420,15 +422,16 @@ impl Lc3VM {
     /// ```
     /// - Bits `[11:9]`: Destination register (DR)
     /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
-    fn ldi(&mut self, instruction: u16) {
+    fn ldi(&mut self, instruction: u16) -> Result<(), Error> {
         let dr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
         let pointer = self.registers.pc.wrapping_add(pc_offset);
-        let address = self.read_memory(pointer);
-        let value = self.read_memory(address);
+        let address = self.read_memory(pointer)?;
+        let value = self.read_memory(address)?;
         self.registers.set(dr, value);
         self.registers.update_flags(dr);
+        Ok(())
     }
 
     /// Stores a register value to memory using indirect addressing.
@@ -446,13 +449,14 @@ impl Lc3VM {
     /// ```
     /// - Bits `[11:9]`: Source register (SR)
     /// - Bits `[8:0]`: 9-bit signed offset (sign-extended to 16 bits)
-    fn sti(&mut self, instruction: u16) {
+    fn sti(&mut self, instruction: u16) -> Result<(), Error> {
         let sr = (instruction >> 9) & 0x7;
         let pc_offset = sign_extend(instruction & 0x1FF, 9);
 
         let pointer = self.registers.pc.wrapping_add(pc_offset);
-        let address = self.read_memory(pointer);
-        self.write_memory(address, self.registers.get(sr));
+        let address = self.read_memory(pointer)?;
+        self.memory.write(address, self.registers.get(sr));
+        Ok(())
     }
 
     /// Jumps to the address contained in a base register (JMP)
@@ -519,63 +523,61 @@ impl Lc3VM {
 
         match code {
             TrapVector::Getc => {
-                let mut buf = [0; 1];
-                io::stdin()
-                    .read_exact(&mut buf)
-                    .expect("error reading from stdin");
-                self.registers.set(0, u16::from(buf[0]));
+                let key = console::read_char()?;
+                self.registers.set(0, u16::from(key));
             }
 
             TrapVector::Out => {
                 let mut stdout = io::stdout().lock();
-                let c = self.registers.get(0) as u8 as char;
-                write!(stdout, "{c}").expect("failed to write to stdout");
-                stdout.flush().expect("failed to flush stdout");
+                stdout.write_all(&[self.registers.get(0).to_le_bytes()[0]])?;
+                stdout.flush()?;
             }
 
             TrapVector::Puts => {
                 let mut stdout = io::stdout().lock();
                 let mut addr = self.registers.get(0);
                 loop {
-                    let c = self.read_memory(addr);
-                    if c == 0 {
+                    let word = self.read_memory(addr)?;
+                    if word == 0 {
                         break;
                     }
-                    write!(stdout, "{}", c as u8 as char).expect("failed to write to stdout");
+                    stdout.write_all(&[word.to_le_bytes()[0]])?;
                     addr = addr.wrapping_add(1);
                 }
-                stdout.flush().expect("failed to flush stdout");
+                stdout.flush()?;
             }
 
             TrapVector::In => {
-                print!("Enter a character: ");
-                io::stdout().flush().expect("failed to flush stdout");
+                let mut stdout = io::stdout().lock();
+                stdout.write_all(b"Enter a character: ")?;
+                stdout.flush()?;
 
-                let mut buf = [0; 1];
-                io::stdin()
-                    .read_exact(&mut buf)
-                    .expect("error reading from stdin");
+                let key = console::read_char()?;
+                // Raw mode disables terminal echo, so the trap echoes the key.
+                stdout.write_all(&[key])?;
+                stdout.flush()?;
 
-                self.registers.set(0, u16::from(buf[0]));
+                self.registers.set(0, u16::from(key));
             }
 
             TrapVector::Putsp => {
                 let mut stdout = io::stdout().lock();
                 let mut addr = self.registers.get(0);
                 loop {
-                    let c = self.read_memory(addr);
-                    if c == 0 {
+                    let word = self.read_memory(addr)?;
+                    if word == 0 {
                         break;
                     }
-                    let c1 = (c & 0xFF) as u8 as char;
-                    write!(stdout, "{c1}").expect("failed to write to stdout");
-                    let c2 = (c >> 8) as u8 as char;
-                    if c2 != '\0' {
-                        write!(stdout, "{c2}").expect("failed to write to stdout");
+                    // Two characters per word: low byte first, then the high
+                    // byte unless it is the null padding of an odd-length string.
+                    let [low, high] = word.to_le_bytes();
+                    stdout.write_all(&[low])?;
+                    if high != 0 {
+                        stdout.write_all(&[high])?;
                     }
                     addr = addr.wrapping_add(1);
                 }
-                stdout.flush().expect("failed to flush stdout");
+                stdout.flush()?;
             }
 
             TrapVector::Halt => return Ok(Flow::Halt),
@@ -596,7 +598,7 @@ enum Flow {
 
 #[cfg(test)]
 mod tests {
-    use lc3core::{ConditionFlag, PC_START};
+    use lc3core::{ConditionFlag, ObjectFile, PC_START};
 
     use super::Flow;
     use crate::{Error, Lc3VM};
@@ -656,5 +658,35 @@ mod tests {
         let mut vm = Lc3VM::new();
         // TRAP xFF is not one of the six standard vectors.
         assert!(matches!(vm.step(0xF0FF), Err(Error::UnknownTrap(0xFF))));
+    }
+
+    #[test]
+    fn load_places_words_at_origin_and_points_pc_there() {
+        let image = ObjectFile {
+            origin: 0x3000,
+            words: vec![0x1234, 0x5678],
+        };
+        let vm = Lc3VM::load(&image).expect("image fits");
+
+        assert_eq!(vm.registers.pc, 0x3000);
+        assert_eq!(vm.memory.read(0x3000), 0x1234);
+        assert_eq!(vm.memory.read(0x3001), 0x5678);
+    }
+
+    #[test]
+    fn load_rejects_image_that_overruns_memory() {
+        // Two words at 0xFFFF would need 0xFFFF and 0x10000; the latter does
+        // not exist, so the image must be rejected rather than wrapping.
+        let image = ObjectFile {
+            origin: 0xFFFF,
+            words: vec![0x0001, 0x0002],
+        };
+        assert!(matches!(
+            Lc3VM::load(&image),
+            Err(Error::ProgramOutOfRange {
+                origin: 0xFFFF,
+                words: 2
+            })
+        ));
     }
 }

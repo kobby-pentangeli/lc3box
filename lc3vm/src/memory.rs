@@ -29,6 +29,13 @@ impl Memory {
     pub fn write(&mut self, address: u16, value: u16) {
         self.0[usize::from(address)] = value;
     }
+
+    /// Returns a mutable view of the `len` words beginning at `origin`, or
+    /// `None` if that range would extend past the end of the address space.
+    pub fn region_mut(&mut self, origin: u16, len: usize) -> Option<&mut [u16]> {
+        let start = usize::from(origin);
+        self.0.get_mut(start..start.checked_add(len)?)
+    }
 }
 
 #[cfg(test)]

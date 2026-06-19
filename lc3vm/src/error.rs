@@ -1,10 +1,13 @@
+use lc3core::ObjectError;
 use thiserror::Error;
 
-/// An error that halts the virtual machine.
+/// An error raised while loading or running an LC-3 program.
 ///
-/// Execution stops as soon as one of these is produced; the value identifies
-/// what the machine could not do, so the caller can report it rather than the
-/// machine continuing past an undefined state.
+/// Loading stops if the object file is malformed or does not fit in memory;
+/// execution stops as soon as the machine reaches an instruction it cannot run
+/// or a host I/O operation fails. Each value identifies what the machine could
+/// not do, so the caller can report it rather than continuing past an undefined
+/// state.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -21,4 +24,22 @@ pub enum Error {
     /// A `TRAP` named a vector outside the six standard service routines.
     #[error("unknown trap vector: {0:#04x}")]
     UnknownTrap(u16),
+
+    /// The object file could not be decoded as a valid `.obj` image.
+    #[error("malformed object file: {0}")]
+    Object(#[from] ObjectError),
+
+    /// The image does not fit: loaded at `origin`, its `words` words would run
+    /// past the top of the address space (`0xFFFF`).
+    #[error("program of {words} words at origin {origin:#06x} runs past the end of memory")]
+    ProgramOutOfRange {
+        /// The load address the image would have started at.
+        origin: u16,
+        /// The number of words the image holds.
+        words: usize,
+    },
+
+    /// A host I/O operation---reading the object file or the console---failed.
+    #[error("input/output error: {0}")]
+    Io(#[from] std::io::Error),
 }

@@ -7,3 +7,7 @@
 //! machine words. Instruction encoding goes through the shared `lc3core`
 //! instruction-set kernel, so the assembler and the virtual machine agree on
 //! every bit of the instruction set.
+
+mod lexer;
+
+pub use lexer::{LexError, Token, TokenKind, tokenize};

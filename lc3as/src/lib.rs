@@ -8,6 +8,8 @@
 //! instruction-set kernel, so the assembler and the virtual machine agree on
 //! every bit of the instruction set.
 
+mod error;
 mod lexer;
 
-pub use lexer::{LexError, Token, TokenKind, tokenize};
+pub use error::LexError;
+pub use lexer::{Token, TokenKind, tokenize};

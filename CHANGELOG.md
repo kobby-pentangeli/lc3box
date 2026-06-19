@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-19
+
+A re-implementation of the VM. The LC-3 instruction set is extracted into a reusable kernel crate, and the virtual machine is hardened from a tutorial prototype into a panic-free, production-quality interpreter---while still running the same pre-assembled `.obj` programs.
+
+### Added
+
+- **`lc3core`**, a new shared library crate that defines the LC-3 instruction set: the opcode set, the register and condition-code model, the trap vectors, the memory-map constants, the big-endian `.obj` object-file format, and the assembler pseudo-ops. The virtual machine---and the forthcoming assembler, disassembler, and compiler---all build on it.
+- The virtual machine now addresses the entire 16-bit memory, including the final word at `xFFFF`, so programs that read or write the top of memory run correctly.
+
+### Changed
+
+- The VM is now the `lc3vm` crate within a Cargo workspace (the binary was renamed from `emulator`); run a program with `cargo run -p lc3vm -- <file.obj>`, or install it with `cargo install --path lc3vm` and run `lc3vm <file.obj>`.
+- Failures are reported gracefully instead of panicking: a malformed object file, a program that does not fit in memory, or an I/O error now prints a clear message and exits non-zero, and the terminal is reliably returned to its normal mode on exit---including on error.
+- The minimum supported Rust version (MSRV) is now 1.88.
+
+### Fixed
+
+- `JSRR` whose base register is R7 now jumps to the correct address; the base was previously overwritten before being read.
+- Indirect loads and stores and other address calculations near the top of memory no longer overflow; address arithmetic now wraps as the architecture specifies.
+- The program counter now wraps correctly at the end of the address space instead of overflowing past it.
+
 ## [0.1.0] - 2026-06-18
 
 Initial release. A pure-Rust virtual machine that runs pre-assembled Little Computer 3 (LC-3) programs, faithful to the LC-3 instruction set architecture.
@@ -30,6 +51,7 @@ When adding entries to this changelog for future releases:
 1. **Format**: Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 2. **Categories**: Use Added, Changed, Deprecated, Removed, Fixed, Security
 3. **Audience**: Write for users, not developers (focus on impact, not implementation)
-4. **Links**: Add comparison links at the bottom: `[0.2.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.1.0...v0.2.0`
+4. **Links**: Add comparison links at the bottom: `[0.3.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.2.0...v0.3.0`
 
+[0.2.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kobby-pentangeli/lc3box/releases/tag/v0.1.0

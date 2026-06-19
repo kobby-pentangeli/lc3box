@@ -65,6 +65,60 @@ impl Opcode {
             _ => Self::Trap,
         }
     }
+
+    /// The four-bit value this opcode occupies in the instruction field
+    /// `[15:12]`. Shifting it into the top nibble is the inverse of [`decode`].
+    ///
+    /// [`decode`]: Self::decode
+    pub const fn nibble(self) -> u16 {
+        match self {
+            Self::Br => 0,
+            Self::Add => 1,
+            Self::Ld => 2,
+            Self::St => 3,
+            Self::Jsr => 4,
+            Self::And => 5,
+            Self::Ldr => 6,
+            Self::Str => 7,
+            Self::Rti => 8,
+            Self::Not => 9,
+            Self::Ldi => 10,
+            Self::Sti => 11,
+            Self::Jmp => 12,
+            Self::Res => 13,
+            Self::Lea => 14,
+            Self::Trap => 15,
+        }
+    }
+
+    /// Parses a machine-operation mnemonic, case-insensitively, to its opcode.
+    ///
+    /// Recognizes the directly-named operations together with the `JSR`/`JSRR`
+    /// and `RET` forms, which share the [`Jsr`](Self::Jsr) and [`Jmp`](Self::Jmp)
+    /// opcodes. The `BR` family is parsed by
+    /// [`parse_branch_condition`](crate::parse_branch_condition) instead, since
+    /// those mnemonics also select the condition bits. Returns `None` for any
+    /// token that is not a machine-operation mnemonic, including pseudo-ops and
+    /// trap aliases.
+    pub fn from_mnemonic(token: &str) -> Option<Self> {
+        match token.to_ascii_uppercase().as_str() {
+            "ADD" => Some(Self::Add),
+            "AND" => Some(Self::And),
+            "NOT" => Some(Self::Not),
+            "LD" => Some(Self::Ld),
+            "LDI" => Some(Self::Ldi),
+            "LDR" => Some(Self::Ldr),
+            "LEA" => Some(Self::Lea),
+            "ST" => Some(Self::St),
+            "STI" => Some(Self::Sti),
+            "STR" => Some(Self::Str),
+            "JMP" | "RET" => Some(Self::Jmp),
+            "JSR" | "JSRR" => Some(Self::Jsr),
+            "RTI" => Some(Self::Rti),
+            "TRAP" => Some(Self::Trap),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -110,5 +164,37 @@ mod tests {
             let instruction = u16::try_from(nibble).expect("nibble fits in u16") << 12;
             assert_eq!(Opcode::decode(instruction), op);
         }
+    }
+
+    #[test]
+    fn nibble_is_the_inverse_of_decode() {
+        for nibble in 0..16u16 {
+            assert_eq!(Opcode::decode(nibble << 12).nibble(), nibble);
+        }
+    }
+
+    #[test]
+    fn mnemonics_parse_case_insensitively_to_their_opcode() {
+        assert_eq!(Opcode::from_mnemonic("add"), Some(Opcode::Add));
+        assert_eq!(Opcode::from_mnemonic("LDR"), Some(Opcode::Ldr));
+        assert_eq!(Opcode::from_mnemonic("Trap"), Some(Opcode::Trap));
+    }
+
+    #[test]
+    fn jsr_jsrr_and_ret_collapse_to_their_shared_opcodes() {
+        assert_eq!(Opcode::from_mnemonic("JSR"), Some(Opcode::Jsr));
+        assert_eq!(Opcode::from_mnemonic("JSRR"), Some(Opcode::Jsr));
+        assert_eq!(Opcode::from_mnemonic("RET"), Some(Opcode::Jmp));
+    }
+
+    #[test]
+    fn non_machine_operation_tokens_are_rejected() {
+        // `BR` carries condition bits and is parsed elsewhere; pseudo-ops and
+        // trap aliases are not opcodes.
+        assert_eq!(Opcode::from_mnemonic("BR"), None);
+        assert_eq!(Opcode::from_mnemonic("BRnzp"), None);
+        assert_eq!(Opcode::from_mnemonic(".ORIG"), None);
+        assert_eq!(Opcode::from_mnemonic("HALT"), None);
+        assert_eq!(Opcode::from_mnemonic("R0"), None);
     }
 }

@@ -2,17 +2,28 @@
 name = "lc3vm"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 readme.workspace = true
 
 [[bin]]
-name = "emulator"
+name = "lc3vm"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = "1.0"
-byteorder = "1.5"
-clap = { version = "4.5", features = ["derive"] }
-libc = "0.2"
-termios = "0.3"
+lc3core.workspace = true
+
+clap.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+termios.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "interpreter"
+harness = false

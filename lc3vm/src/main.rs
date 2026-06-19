@@ -1,8 +1,9 @@
+use std::error::Error;
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 use clap::Parser;
-use lc3vm::Lc3VM;
-use termios::{ECHO, ICANON, TCSANOW, Termios, tcsetattr};
+use lc3vm::{Lc3VM, RawMode};
 
 #[derive(Parser)]
 #[command(name = "lc3vm")]
@@ -12,50 +13,24 @@ struct Cli {
     path: PathBuf,
 }
 
-/// RAII guard that restores terminal settings on drop
-struct TerminalGuard {
-    original: Termios,
-}
-
-impl TerminalGuard {
-    fn new() -> std::io::Result<Self> {
-        let original = Termios::from_fd(libc::STDIN_FILENO)?;
-
-        let mut raw = original;
-        raw.c_lflag &= !(ICANON | ECHO);
-        tcsetattr(libc::STDIN_FILENO, TCSANOW, &raw)?;
-
-        Ok(Self { original })
-    }
-}
-
-impl Drop for TerminalGuard {
-    fn drop(&mut self) {
-        let _ = tcsetattr(libc::STDIN_FILENO, TCSANOW, &self.original);
-    }
-}
-
-fn run() -> anyhow::Result<()> {
+fn run() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
-    let _guard = TerminalGuard::new()?;
     let mut vm = Lc3VM::init_from_program(&cli.path)?;
-    vm.execute_program();
+
+    // Raw mode lasts only for the program's run; the guard restores the
+    // terminal when this scope ends, including on an early error return.
+    let _raw = RawMode::enable()?;
+    vm.run()?;
+
     Ok(())
 }
 
-fn main() {
-    // Ensure terminal is restored even on panic
-    let original_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        // Restore terminal before printing panic
-        let _ = Termios::from_fd(libc::STDIN_FILENO).map(|t| {
-            let _ = tcsetattr(libc::STDIN_FILENO, TCSANOW, &t);
-        });
-        original_hook(info);
-    }));
-
-    if let Err(e) = run() {
-        eprintln!("Error: {e}");
-        std::process::exit(1);
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("lc3vm: {error}");
+            ExitCode::FAILURE
+        }
     }
 }

@@ -20,3 +20,10 @@ thiserror.workspace = true
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 termios.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "interpreter"
+harness = false

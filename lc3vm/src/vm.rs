@@ -1,9 +1,9 @@
-use std::io::{self, Write as _};
 use std::path::Path;
 
 use lc3core::{KBDR, KBSR, ObjectFile, Opcode, TrapVector, sign_extend};
 
-use crate::{Error, Memory, Registers, console};
+use crate::console::{Console, StdConsole};
+use crate::{Error, Memory, Registers};
 
 /// The main LC-3 emulator.
 ///
@@ -22,6 +22,8 @@ pub struct Lc3VM {
     pub memory: Memory,
     /// Processor registers and flags
     pub registers: Registers,
+    /// Console the traps and keyboard poll read from and write to.
+    console: Box<dyn Console>,
 }
 
 impl Default for Lc3VM {
@@ -31,11 +33,17 @@ impl Default for Lc3VM {
 }
 
 impl Lc3VM {
-    /// Creates a new VM in initial state.
+    /// Creates a new VM in its initial state, driving the real terminal.
     pub fn new() -> Self {
+        Self::with_console(Box::new(StdConsole::new()))
+    }
+
+    /// Creates a new VM in its initial state over the given `console`.
+    pub(crate) fn with_console(console: Box<dyn Console>) -> Self {
         Self {
             memory: Memory::new(),
             registers: Registers::new(),
+            console,
         }
     }
 
@@ -45,25 +53,26 @@ impl Lc3VM {
     /// its bytes are not a valid `.obj` image, and [`Error::ProgramOutOfRange`]
     /// if the image would not fit in memory.
     pub fn init_from_program(path: &Path) -> Result<Self, Error> {
-        Self::load(&ObjectFile::from_be_bytes(&std::fs::read(path)?)?)
+        let mut vm = Self::new();
+        vm.load_image(&ObjectFile::from_be_bytes(&std::fs::read(path)?)?)?;
+        Ok(vm)
     }
 
-    /// Builds a VM with `image` loaded at its origin and the program counter set
-    /// there, ready to [`run`](Self::run).
+    /// Loads `image` at its origin and points the program counter there, ready
+    /// to [`run`](Self::run).
     ///
     /// Returns [`Error::ProgramOutOfRange`] if the image's words would extend
     /// past the top of the address space.
-    fn load(image: &ObjectFile) -> Result<Self, Error> {
-        let mut vm = Self::new();
-        vm.memory
+    pub(crate) fn load_image(&mut self, image: &ObjectFile) -> Result<(), Error> {
+        self.memory
             .region_mut(image.origin, image.words.len())
             .ok_or(Error::ProgramOutOfRange {
                 origin: image.origin,
                 words: image.words.len(),
             })?
             .copy_from_slice(&image.words);
-        vm.registers.pc = image.origin;
-        Ok(vm)
+        self.registers.pc = image.origin;
+        Ok(())
     }
 
     /// Runs the loaded program from the current program counter until it halts.
@@ -96,7 +105,7 @@ impl Lc3VM {
     /// A waiting key sets the ready bit of `KBSR` and lands in `KBDR`; with no
     /// key ready, `KBSR` is cleared, so a polling program simply tries again.
     fn poll_keyboard(&mut self) -> Result<(), Error> {
-        match console::poll_char()? {
+        match self.console.poll_char()? {
             Some(key) => {
                 self.memory.write(KBSR, 1 << 15);
                 self.memory.write(KBDR, u16::from(key));
@@ -523,45 +532,42 @@ impl Lc3VM {
 
         match code {
             TrapVector::Getc => {
-                let key = console::read_char()?;
+                let key = self.console.read_char()?;
                 self.registers.set(0, u16::from(key));
             }
 
             TrapVector::Out => {
-                let mut stdout = io::stdout().lock();
-                stdout.write_all(&[self.registers.get(0).to_le_bytes()[0]])?;
-                stdout.flush()?;
+                self.console
+                    .write_all(&[self.registers.get(0).to_le_bytes()[0]])?;
+                self.console.flush()?;
             }
 
             TrapVector::Puts => {
-                let mut stdout = io::stdout().lock();
                 let mut addr = self.registers.get(0);
                 loop {
                     let word = self.read_memory(addr)?;
                     if word == 0 {
                         break;
                     }
-                    stdout.write_all(&[word.to_le_bytes()[0]])?;
+                    self.console.write_all(&[word.to_le_bytes()[0]])?;
                     addr = addr.wrapping_add(1);
                 }
-                stdout.flush()?;
+                self.console.flush()?;
             }
 
             TrapVector::In => {
-                let mut stdout = io::stdout().lock();
-                stdout.write_all(b"Enter a character: ")?;
-                stdout.flush()?;
+                self.console.write_all(b"Enter a character: ")?;
+                self.console.flush()?;
 
-                let key = console::read_char()?;
+                let key = self.console.read_char()?;
                 // Raw mode disables terminal echo, so the trap echoes the key.
-                stdout.write_all(&[key])?;
-                stdout.flush()?;
+                self.console.write_all(&[key])?;
+                self.console.flush()?;
 
                 self.registers.set(0, u16::from(key));
             }
 
             TrapVector::Putsp => {
-                let mut stdout = io::stdout().lock();
                 let mut addr = self.registers.get(0);
                 loop {
                     let word = self.read_memory(addr)?;
@@ -571,13 +577,13 @@ impl Lc3VM {
                     // Two characters per word: low byte first, then the high
                     // byte unless it is the null padding of an odd-length string.
                     let [low, high] = word.to_le_bytes();
-                    stdout.write_all(&[low])?;
+                    self.console.write_all(&[low])?;
                     if high != 0 {
-                        stdout.write_all(&[high])?;
+                        self.console.write_all(&[high])?;
                     }
                     addr = addr.wrapping_add(1);
                 }
-                stdout.flush()?;
+                self.console.flush()?;
             }
 
             TrapVector::Halt => return Ok(Flow::Halt),
@@ -598,10 +604,53 @@ enum Flow {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::io;
+    use std::rc::Rc;
+
     use lc3core::{ConditionFlag, ObjectFile, PC_START};
 
     use super::Flow;
+    use crate::console::Console;
     use crate::{Error, Lc3VM};
+
+    /// In-memory console: scripted input bytes and a shared capture buffer for
+    /// everything the VM writes.
+    struct BufferConsole {
+        input: VecDeque<u8>,
+        output: Rc<RefCell<Vec<u8>>>,
+    }
+
+    impl BufferConsole {
+        fn new(input: &[u8], output: Rc<RefCell<Vec<u8>>>) -> Self {
+            Self {
+                input: input.iter().copied().collect(),
+                output,
+            }
+        }
+    }
+
+    impl Console for BufferConsole {
+        fn poll_char(&mut self) -> io::Result<Option<u8>> {
+            Ok(self.input.pop_front())
+        }
+
+        fn read_char(&mut self) -> io::Result<u8> {
+            self.input
+                .pop_front()
+                .ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))
+        }
+
+        fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
+            self.output.borrow_mut().extend_from_slice(bytes);
+            Ok(())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     /// Loads `words` consecutively from `PC_START`, ready for [`Lc3VM::run`].
     fn vm_with(words: &[u16]) -> Lc3VM {
@@ -613,6 +662,47 @@ mod tests {
         vm
     }
 
+    /// A VM wired to a scripted-input console, paired with the shared buffer
+    /// the console writes captured output into.
+    fn vm_with_console(input: &[u8]) -> (Lc3VM, Rc<RefCell<Vec<u8>>>) {
+        let output = Rc::new(RefCell::new(Vec::new()));
+        let console = BufferConsole::new(input, Rc::clone(&output));
+        (Lc3VM::with_console(Box::new(console)), output)
+    }
+
+    /// Decodes one of the workspace example programs.
+    fn load_example(name: &str) -> ObjectFile {
+        let path = format!("{}/../examples/{name}", env!("CARGO_MANIFEST_DIR"));
+        ObjectFile::from_be_bytes(&std::fs::read(&path).expect("example file exists"))
+            .expect("example is a valid object file")
+    }
+
+    /// Loads `name` over scripted `input` and drives up to `limit` instructions,
+    /// stopping early on a clean halt or once the scripted input is exhausted.
+    /// Any execution error other than that exhaustion fails the test. Returns
+    /// the captured console output.
+    fn run_example_bounded(name: &str, input: &[u8], limit: u64) -> Vec<u8> {
+        let (mut vm, output) = vm_with_console(input);
+        vm.load_image(&load_example(name))
+            .expect("example fits in memory");
+
+        for _ in 0..limit {
+            let pc = vm.registers.pc;
+            let Ok(instruction) = vm.read_memory(pc) else {
+                break;
+            };
+            vm.registers.pc = pc.wrapping_add(1);
+            match vm.step(instruction) {
+                Ok(Flow::Continue) => {}
+                Ok(Flow::Halt) => break,
+                Err(Error::Io(error)) if error.kind() == io::ErrorKind::UnexpectedEof => break,
+                Err(error) => panic!("{name} raised an execution error: {error}"),
+            }
+        }
+
+        output.borrow().clone()
+    }
+
     #[test]
     fn add_immediate_executes_and_sets_condition_code() {
         // ADD R0, R0, #5 ; TRAP HALT
@@ -620,6 +710,233 @@ mod tests {
         assert!(vm.run().is_ok());
         assert_eq!(vm.registers.get(0), 5);
         assert_eq!(vm.registers.cond, ConditionFlag::Positive);
+    }
+
+    #[test]
+    fn add_register_mode_sums_two_registers() {
+        let mut vm = Lc3VM::new();
+        vm.registers.set(1, 7);
+        vm.registers.set(2, 35);
+        // ADD R0, R1, R2
+        vm.step(0x1042).expect("add");
+        assert_eq!(vm.registers.get(0), 42);
+        assert_eq!(vm.registers.cond, ConditionFlag::Positive);
+    }
+
+    #[test]
+    fn and_immediate_masks_the_source_register() {
+        let mut vm = Lc3VM::new();
+        vm.registers.set(1, 0xFFFF);
+        // AND R0, R1, #15
+        vm.step(0x506F).expect("and");
+        assert_eq!(vm.registers.get(0), 0x000F);
+        assert_eq!(vm.registers.cond, ConditionFlag::Positive);
+    }
+
+    #[test]
+    fn not_complements_the_source_register() {
+        let mut vm = Lc3VM::new();
+        vm.registers.set(1, 0x00FF);
+        // NOT R0, R1
+        vm.step(0x907F).expect("not");
+        assert_eq!(vm.registers.get(0), 0xFF00);
+        assert_eq!(vm.registers.cond, ConditionFlag::Negative);
+    }
+
+    #[test]
+    fn br_branches_only_when_a_condition_flag_matches() {
+        let mut vm = Lc3VM::new();
+        vm.registers.cond = ConditionFlag::Zero;
+
+        // BRz #5 with the zero flag set: taken.
+        vm.registers.pc = 0x3000;
+        vm.step(0x0405).expect("br");
+        assert_eq!(vm.registers.pc, 0x3005);
+
+        // BRn #5 with the zero flag set: not taken.
+        vm.registers.pc = 0x3000;
+        vm.step(0x0805).expect("br");
+        assert_eq!(vm.registers.pc, 0x3000);
+    }
+
+    #[test]
+    fn br_applies_a_sign_extended_negative_offset() {
+        let mut vm = Lc3VM::new();
+        vm.registers.cond = ConditionFlag::Positive;
+        vm.registers.pc = 0x3005;
+        // BRp #-5
+        vm.step(0x03FB).expect("br");
+        assert_eq!(vm.registers.pc, 0x3000);
+    }
+
+    #[test]
+    fn jmp_sets_the_pc_to_the_base_register() {
+        let mut vm = Lc3VM::new();
+        vm.registers.set(2, 0x8000);
+        // JMP R2
+        vm.step(0xC080).expect("jmp");
+        assert_eq!(vm.registers.pc, 0x8000);
+    }
+
+    #[test]
+    fn jsr_jumps_and_saves_the_return_address() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0x3000;
+        // JSR #100
+        vm.step(0x4864).expect("jsr");
+        assert_eq!(vm.registers.pc, 0x3064);
+        assert_eq!(vm.registers.get(7), 0x3000);
+    }
+
+    #[test]
+    fn jsrr_reads_the_base_register_before_overwriting_r7() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0x3000;
+        vm.registers.set(7, 0x4000);
+        // JSRR R7 jumps to the old R7, not the freshly saved return address.
+        vm.step(0x41C0).expect("jsrr");
+        assert_eq!(vm.registers.pc, 0x4000);
+        assert_eq!(vm.registers.get(7), 0x3000);
+    }
+
+    #[test]
+    fn lea_loads_the_effective_address_without_dereferencing() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0x3000;
+        // LEA R7, #10
+        vm.step(0xEE0A).expect("lea");
+        assert_eq!(vm.registers.get(7), 0x300A);
+    }
+
+    #[test]
+    fn ld_loads_from_a_pc_relative_address() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0x3000;
+        vm.memory.write(0x3005, 0xBEEF);
+        // LD R3, #5
+        vm.step(0x2605).expect("ld");
+        assert_eq!(vm.registers.get(3), 0xBEEF);
+        assert_eq!(vm.registers.cond, ConditionFlag::Negative);
+    }
+
+    #[test]
+    fn st_stores_to_a_pc_relative_address() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0x3000;
+        vm.registers.set(4, 0x1234);
+        // ST R4, #2
+        vm.step(0x3802).expect("st");
+        assert_eq!(vm.memory.read(0x3002), 0x1234);
+    }
+
+    #[test]
+    fn ldr_loads_from_base_plus_offset() {
+        let mut vm = Lc3VM::new();
+        vm.registers.set(1, 0x4000);
+        vm.memory.write(0x4003, 0xCAFE);
+        // LDR R2, R1, #3
+        vm.step(0x6443).expect("ldr");
+        assert_eq!(vm.registers.get(2), 0xCAFE);
+    }
+
+    #[test]
+    fn str_stores_to_base_plus_offset() {
+        let mut vm = Lc3VM::new();
+        vm.registers.set(1, 0x4000);
+        vm.registers.set(2, 0xABCD);
+        // STR R2, R1, #1
+        vm.step(0x7441).expect("str");
+        assert_eq!(vm.memory.read(0x4001), 0xABCD);
+    }
+
+    #[test]
+    fn ldi_follows_the_pointer_at_the_pc_relative_address() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0x3000;
+        vm.memory.write(0x3001, 0x4000);
+        vm.memory.write(0x4000, 0x7777);
+        // LDI R5, #1
+        vm.step(0xAA01).expect("ldi");
+        assert_eq!(vm.registers.get(5), 0x7777);
+    }
+
+    #[test]
+    fn sti_stores_through_the_pointer_at_the_pc_relative_address() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0x3000;
+        vm.registers.set(6, 0x9999);
+        vm.memory.write(0x3002, 0x5000);
+        // STI R6, #2
+        vm.step(0xBC02).expect("sti");
+        assert_eq!(vm.memory.read(0x5000), 0x9999);
+    }
+
+    #[test]
+    fn instructions_can_address_the_last_word_of_memory() {
+        let mut vm = Lc3VM::new();
+        vm.memory.write(0xFFFF, 0x55AA);
+        vm.registers.set(1, 0xFFFF);
+        // LDR R0, R1, #0 reads 0xFFFF without a bounds panic.
+        vm.step(0x6040).expect("ldr");
+        assert_eq!(vm.registers.get(0), 0x55AA);
+    }
+
+    #[test]
+    fn program_counter_wraps_at_the_top_of_memory() {
+        let mut vm = Lc3VM::new();
+        vm.registers.pc = 0xFFFF;
+        vm.memory.write(0xFFFF, 0x0000); // BR with no flags: a no-op
+        vm.memory.write(0x0000, 0xF025); // TRAP HALT at the wrapped address
+        vm.run()
+            .expect("halts after the program counter wraps to 0x0000");
+    }
+
+    #[test]
+    fn getc_reads_one_key_into_r0() {
+        let (mut vm, _output) = vm_with_console(b"Q");
+        vm.step(0xF020).expect("getc"); // TRAP GETC
+        assert_eq!(vm.registers.get(0), u16::from(b'Q'));
+    }
+
+    #[test]
+    fn out_writes_the_low_byte_of_r0() {
+        let (mut vm, output) = vm_with_console(b"");
+        vm.registers.set(0, u16::from(b'Z'));
+        vm.step(0xF021).expect("out"); // TRAP OUT
+        assert_eq!(output.borrow().as_slice(), b"Z");
+    }
+
+    #[test]
+    fn puts_writes_a_null_terminated_string() {
+        let (mut vm, output) = vm_with_console(b"");
+        vm.memory.write(0x4000, u16::from(b'H'));
+        vm.memory.write(0x4001, u16::from(b'i'));
+        vm.memory.write(0x4002, 0x0000);
+        vm.registers.set(0, 0x4000);
+        vm.step(0xF022).expect("puts"); // TRAP PUTS
+        assert_eq!(output.borrow().as_slice(), b"Hi");
+    }
+
+    #[test]
+    fn in_prompts_echoes_and_stores_the_key() {
+        let (mut vm, output) = vm_with_console(b"k");
+        vm.step(0xF023).expect("in"); // TRAP IN
+        assert_eq!(vm.registers.get(0), u16::from(b'k'));
+        assert_eq!(output.borrow().as_slice(), b"Enter a character: k");
+    }
+
+    #[test]
+    fn putsp_writes_two_packed_characters_per_word() {
+        let (mut vm, output) = vm_with_console(b"");
+        // "ABCD" packed low|high per word, then a null terminator word.
+        vm.memory
+            .write(0x4000, u16::from(b'A') | (u16::from(b'B') << 8));
+        vm.memory
+            .write(0x4001, u16::from(b'C') | (u16::from(b'D') << 8));
+        vm.memory.write(0x4002, 0x0000);
+        vm.registers.set(0, 0x4000);
+        vm.step(0xF024).expect("putsp"); // TRAP PUTSP
+        assert_eq!(output.borrow().as_slice(), b"ABCD");
     }
 
     #[test]
@@ -666,7 +983,8 @@ mod tests {
             origin: 0x3000,
             words: vec![0x1234, 0x5678],
         };
-        let vm = Lc3VM::load(&image).expect("image fits");
+        let mut vm = Lc3VM::new();
+        vm.load_image(&image).expect("image fits");
 
         assert_eq!(vm.registers.pc, 0x3000);
         assert_eq!(vm.memory.read(0x3000), 0x1234);
@@ -681,12 +999,35 @@ mod tests {
             origin: 0xFFFF,
             words: vec![0x0001, 0x0002],
         };
+        let mut vm = Lc3VM::new();
         assert!(matches!(
-            Lc3VM::load(&image),
+            vm.load_image(&image),
             Err(Error::ProgramOutOfRange {
                 origin: 0xFFFF,
                 words: 2
             })
         ));
+    }
+
+    #[test]
+    fn hello_world_example_prints_its_greeting() {
+        let (mut vm, output) = vm_with_console(b"");
+        vm.load_image(&load_example("hello-world.obj"))
+            .expect("image fits");
+        vm.run().expect("hello-world runs to HALT");
+        assert_eq!(output.borrow().as_slice(), b"Hello World!");
+    }
+
+    #[test]
+    fn game_2048_example_initializes_and_renders() {
+        // Drives a few moves; the scripted input runs out via GETC and stops it.
+        let output = run_example_bounded("2048.obj", b"wasdq", 50_000_000);
+        assert!(!output.is_empty(), "2048 renders its board");
+    }
+
+    #[test]
+    fn game_rogue_example_initializes_and_renders() {
+        let output = run_example_bounded("rogue.obj", b"wasd\r", 50_000_000);
+        assert!(!output.is_empty(), "rogue renders its screen");
     }
 }

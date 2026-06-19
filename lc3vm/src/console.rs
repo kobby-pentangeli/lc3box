@@ -1,12 +1,14 @@
 //! Console I/O for the virtual machine: raw-mode terminal setup and the
 //! blocking and non-blocking keyboard reads the trap and KBSR paths need.
 //!
-//! The Unix terminal layer is reached through the `termios` safe wrappers.
-//! On platforms without that layer the terminal handling is inert: the VM
-//! still builds and runs with line-buffered standard input, and the
-//! non-blocking poll reports that no key is ready.
+//! The traps and the keyboard poll reach the outside world through the
+//! [`Console`] trait rather than `std::io` directly, so the binary drives the
+//! real terminal while tests drive scripted input and capture output. The Unix
+//! terminal layer is reached through the `termios` safe wrappers; on platforms
+//! without that layer the terminal handling is inert, so the VM still builds
+//! and runs with line-buffered standard input and the poll reports no key.
 
-use std::io::{self, Read as _};
+use std::io::{self, BufWriter, Read as _, Write as _};
 
 #[cfg(unix)]
 use libc::STDIN_FILENO;
@@ -26,7 +28,7 @@ impl RawMode {
     ///
     /// Clearing `ICANON`/`ECHO` delivers keystrokes unbuffered and unechoed;
     /// `VMIN = 0`, `VTIME = 0` makes reads return immediately, so the KBSR poll
-    /// never blocks. The blocking `read_char` restores `VMIN = 1` around its
+    /// never blocks. The blocking character read restores `VMIN = 1` around its
     /// own read.
     pub fn enable() -> io::Result<Self> {
         let original = Termios::from_fd(STDIN_FILENO)?;
@@ -56,13 +58,62 @@ impl RawMode {
     }
 }
 
-/// Reads the next key if one is already available, without blocking.
+/// The console the VM reads keys from and writes characters to.
 ///
-/// Relies on the non-blocking raw mode established by [`RawMode`]: a read of
-/// zero bytes means no key is ready. Off Unix, where that mode is unavailable,
-/// it always reports no key.
+/// One implementation ([`StdConsole`]) drives the real terminal; tests supply
+/// their own with scripted input and a capture buffer.
+pub(crate) trait Console {
+    /// Returns the next key if one is already available, without blocking.
+    fn poll_char(&mut self) -> io::Result<Option<u8>>;
+
+    /// Blocks until the next key is available and returns it.
+    fn read_char(&mut self) -> io::Result<u8>;
+
+    /// Writes `bytes` to the output.
+    fn write_all(&mut self, bytes: &[u8]) -> io::Result<()>;
+
+    /// Flushes any buffered output to the underlying device.
+    fn flush(&mut self) -> io::Result<()>;
+}
+
+/// The production console: non-blocking terminal input and buffered standard
+/// output. Input relies on the non-blocking raw mode established by [`RawMode`].
+pub(crate) struct StdConsole {
+    out: BufWriter<io::Stdout>,
+}
+
+impl StdConsole {
+    pub(crate) fn new() -> Self {
+        Self {
+            out: BufWriter::new(io::stdout()),
+        }
+    }
+}
+
+impl Console for StdConsole {
+    fn poll_char(&mut self) -> io::Result<Option<u8>> {
+        poll_terminal()
+    }
+
+    fn read_char(&mut self) -> io::Result<u8> {
+        read_terminal()
+    }
+
+    fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.out.write_all(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.out.flush()
+    }
+}
+
+/// Reads the next key without blocking, returning `None` when none is ready.
+///
+/// A read of zero bytes under [`RawMode`]'s `VMIN = 0` means no key is ready.
+/// Off Unix, where that mode is unavailable, this always reports no key.
 #[cfg(unix)]
-pub(crate) fn poll_char() -> io::Result<Option<u8>> {
+fn poll_terminal() -> io::Result<Option<u8>> {
     let mut buf = [0u8; 1];
     match io::stdin().read(&mut buf)? {
         0 => Ok(None),
@@ -71,7 +122,7 @@ pub(crate) fn poll_char() -> io::Result<Option<u8>> {
 }
 
 #[cfg(not(unix))]
-pub(crate) fn poll_char() -> io::Result<Option<u8>> {
+fn poll_terminal() -> io::Result<Option<u8>> {
     Ok(None)
 }
 
@@ -80,7 +131,7 @@ pub(crate) fn poll_char() -> io::Result<Option<u8>> {
 /// Restores blocking line behavior (`VMIN = 1`) for the duration of the read,
 /// then returns the terminal to the non-blocking mode the KBSR poll depends on.
 #[cfg(unix)]
-pub(crate) fn read_char() -> io::Result<u8> {
+fn read_terminal() -> io::Result<u8> {
     let original = Termios::from_fd(STDIN_FILENO)?;
 
     let mut blocking = original;
@@ -96,7 +147,7 @@ pub(crate) fn read_char() -> io::Result<u8> {
 }
 
 #[cfg(not(unix))]
-pub(crate) fn read_char() -> io::Result<u8> {
+fn read_terminal() -> io::Result<u8> {
     let mut buf = [0u8; 1];
     io::stdin().read_exact(&mut buf)?;
     Ok(buf[0])

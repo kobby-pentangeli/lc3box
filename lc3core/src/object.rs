@@ -47,7 +47,7 @@ impl ObjectFile {
         if bytes.len() < 2 {
             return Err(ObjectError::MissingOrigin);
         }
-        if bytes.len() % 2 != 0 {
+        if !bytes.len().is_multiple_of(2) {
             return Err(ObjectError::TruncatedWord);
         }
 

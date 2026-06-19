@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["lc3core", "lc3vm"]
+members = ["lc3core", "lc3vm", "lc3as"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -11,10 +11,12 @@ repository = "https://github.com/kobby-pentangeli/lc3box"
 readme = "README.md"
 
 [workspace.dependencies]
-lc3core = { path = "lc3core", version = "0.2.0" }
+lc3core = { path = "lc3core", version = "0.3.0" }
 
 clap = { version = "4.6", features = ["derive"] }
-criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+criterion = { version = "0.8", default-features = false, features = [
+    "cargo_bench_support",
+] }
 libc = "0.2"
 termios = "0.3"
 thiserror = "2"

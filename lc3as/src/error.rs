@@ -77,3 +77,150 @@ impl fmt::Display for LexError {
 }
 
 impl Error for LexError {}
+
+/// The reason a token stream could not be parsed into a program.
+///
+/// Every variant but [`MissingOrig`](Self::MissingOrig) carries the 1-based
+/// source line at fault.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseError {
+    /// Tokenizing the source failed.
+    Lex(LexError),
+    /// A code- or data-emitting statement appears outside any `.ORIG`/`.END`.
+    StatementOutsideSegment {
+        /// The offending line.
+        line: usize,
+    },
+    /// A `.ORIG` opens a segment while another is still open.
+    NestedSegment {
+        /// The offending `.ORIG` line.
+        line: usize,
+    },
+    /// A `.END` appears with no open `.ORIG`.
+    UnmatchedEnd {
+        /// The offending `.END` line.
+        line: usize,
+    },
+    /// A `.ORIG` is never closed by a `.END`.
+    UnterminatedSegment {
+        /// The line of the unclosed `.ORIG`.
+        line: usize,
+    },
+    /// The program contains no `.ORIG` segment.
+    MissingOrig,
+    /// A label is attached to `.ORIG` or `.END`.
+    LabelOnDirective {
+        /// The offending line.
+        line: usize,
+    },
+    /// A label is defined more than once.
+    DuplicateLabel {
+        /// The line of the redefinition.
+        line: usize,
+        /// The duplicated label.
+        label: String,
+    },
+    /// A segment's contents would extend past `xFFFF`.
+    ProgramOverflow {
+        /// The line of the statement that overruns memory.
+        line: usize,
+    },
+    /// A `.ORIG` origin or `.BLKW` count does not fit a 16-bit word.
+    ValueOutOfRange {
+        /// The offending line.
+        line: usize,
+    },
+    /// A word in operation position names no known instruction.
+    UnknownMnemonic {
+        /// The offending line.
+        line: usize,
+        /// The unrecognized mnemonic.
+        mnemonic: String,
+    },
+    /// A `.`-directive names no known pseudo-op.
+    UnknownDirective {
+        /// The offending line.
+        line: usize,
+        /// The unrecognized directive.
+        directive: String,
+    },
+    /// An operand of the named kind was expected but not found.
+    ExpectedOperand {
+        /// The offending line.
+        line: usize,
+        /// A description of what was expected.
+        expected: &'static str,
+    },
+    /// A statement carries more tokens than its form allows.
+    UnexpectedToken {
+        /// The offending line.
+        line: usize,
+    },
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Lex(error) => write!(f, "{error}"),
+            Self::StatementOutsideSegment { line } => {
+                write!(f, "line {line}: statement outside any .ORIG/.END segment")
+            }
+            Self::NestedSegment { line } => {
+                write!(
+                    f,
+                    "line {line}: .ORIG inside an open segment; close it with .END first"
+                )
+            }
+            Self::UnmatchedEnd { line } => {
+                write!(f, "line {line}: .END without a matching .ORIG")
+            }
+            Self::UnterminatedSegment { line } => {
+                write!(f, "line {line}: .ORIG is never closed by .END")
+            }
+            Self::MissingOrig => write!(f, "program has no .ORIG segment"),
+            Self::LabelOnDirective { line } => {
+                write!(
+                    f,
+                    "line {line}: a label cannot be attached to .ORIG or .END"
+                )
+            }
+            Self::DuplicateLabel { line, label } => {
+                write!(f, "line {line}: duplicate label '{label}'")
+            }
+            Self::ProgramOverflow { line } => {
+                write!(
+                    f,
+                    "line {line}: program runs past the end of memory (xFFFF)"
+                )
+            }
+            Self::ValueOutOfRange { line } => {
+                write!(f, "line {line}: value does not fit a 16-bit word")
+            }
+            Self::UnknownMnemonic { line, mnemonic } => {
+                write!(f, "line {line}: unknown instruction '{mnemonic}'")
+            }
+            Self::UnknownDirective { line, directive } => {
+                write!(f, "line {line}: unknown directive '{directive}'")
+            }
+            Self::ExpectedOperand { line, expected } => {
+                write!(f, "line {line}: expected {expected}")
+            }
+            Self::UnexpectedToken { line } => write!(f, "line {line}: unexpected token"),
+        }
+    }
+}
+
+impl Error for ParseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Lex(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<LexError> for ParseError {
+    fn from(error: LexError) -> Self {
+        Self::Lex(error)
+    }
+}

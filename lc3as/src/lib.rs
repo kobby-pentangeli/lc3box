@@ -10,6 +10,8 @@
 
 mod error;
 mod lexer;
+mod parser;
 
-pub use error::LexError;
+pub use error::{LexError, ParseError};
 pub use lexer::{Token, TokenKind, tokenize};
+pub use parser::{Fill, Operation, Program, Segment, Statement, Target, parse};

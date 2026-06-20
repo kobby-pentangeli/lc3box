@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-20
+
+Adds `lc3as`, the LC-3 assembler, making the toolbox self-contained: write assembly, assemble it to an object file, and run it on `lc3vm`---no external assembler required.
+
+### Added
+
+- **`lc3as`**, a new two-pass assembler that translates LC-3 assembly source (`.asm`) into the big-endian `.obj` object files `lc3vm` runs. It supports the full assembly language: labels; every instruction, including the `BR` condition variants, `RET`/`JSR`/`JSRR`, `NOT`, and `RTI`; the named trap aliases (`GETC`, `OUT`, `PUTS`, `IN`, `PUTSP`, `HALT`); the `.ORIG`, `.FILL`, `.BLKW`, `.STRINGZ`, and `.END` directives; decimal (`#`) and hexadecimal (`x`) numbers; case-insensitive mnemonics; and `;` comments. A program written as several `.ORIG`/`.END` segments is assembled to one object file per segment.
+- An `lc3as` command-line tool: `lc3as program.asm` assembles a source file to `program.obj`, with `-o`/`--output` to choose the destination. Malformed source is reported with the offending line number and a non-zero exit status, never a panic.
+- A `hello-world.asm` example that assembles to the bundled `hello-world.obj`.
+- Encoding support in the shared `lc3core` kernel---opcode values and mnemonic, register, branch-condition, and trap-alias parsing, plus instruction-field range checks---so the assembler and the virtual machine agree on every bit of the instruction set.
+
+### Changed
+
+- The toolbox no longer relies on an external (web) assembler: the bundled `examples/bootstrap.asm` listing---and your own programs---can now be assembled in-tree with `lc3as` and run on `lc3vm`.
+
 ## [0.2.0] - 2026-06-19
 
 A re-implementation of the VM. The LC-3 instruction set is extracted into a reusable kernel crate, and the virtual machine is hardened from a tutorial prototype into a panic-free, production-quality interpreter---while still running the same pre-assembled `.obj` programs.
@@ -51,7 +66,8 @@ When adding entries to this changelog for future releases:
 1. **Format**: Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 2. **Categories**: Use Added, Changed, Deprecated, Removed, Fixed, Security
 3. **Audience**: Write for users, not developers (focus on impact, not implementation)
-4. **Links**: Add comparison links at the bottom: `[0.3.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.2.0...v0.3.0`
+4. **Links**: Add comparison links at the bottom: `[0.4.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.3.0...v0.4.0`
 
+[0.3.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kobby-pentangeli/lc3box/releases/tag/v0.1.0

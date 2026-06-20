@@ -23,6 +23,7 @@ termios.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+lc3as.workspace = true
 
 [[bench]]
 name = "interpreter"

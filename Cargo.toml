@@ -12,6 +12,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 lc3core = { path = "lc3core", version = "0.3.0" }
+lc3as = { path = "lc3as", version = "0.3.0" }
 
 clap = { version = "4.6", features = ["derive"] }
 criterion = { version = "0.8", default-features = false, features = [

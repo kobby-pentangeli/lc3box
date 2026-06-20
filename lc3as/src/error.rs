@@ -224,3 +224,91 @@ impl From<LexError> for ParseError {
         Self::Lex(error)
     }
 }
+
+/// The reason a parsed program could not be encoded into object words.
+///
+/// [`Parse`](Self::Parse) wraps a first-pass failure; the remaining variants are
+/// second-pass faults---an unresolved label, or a value too large for the
+/// instruction field that holds it---each carrying the 1-based source line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AsmError {
+    /// The first pass---lexing and parsing---failed.
+    Parse(ParseError),
+    /// A label reference names no symbol defined anywhere in the program.
+    UndefinedLabel {
+        /// The line of the reference.
+        line: usize,
+        /// The undefined label.
+        label: String,
+    },
+    /// A PC-relative or base offset does not fit its instruction field.
+    OffsetOutOfRange {
+        /// The line of the instruction.
+        line: usize,
+        /// The offset that overflowed the field.
+        offset: i32,
+        /// The width of the field, in bits.
+        bits: u32,
+    },
+    /// An `ADD`/`AND` immediate does not fit the five-bit `imm5` field.
+    ImmediateOutOfRange {
+        /// The line of the instruction.
+        line: usize,
+        /// The immediate that overflowed the field.
+        value: i32,
+    },
+    /// A `.FILL` word, a trap vector, or a string character does not fit its
+    /// field.
+    ValueOutOfRange {
+        /// The line of the offending value.
+        line: usize,
+        /// The value that overflowed the field.
+        value: i32,
+        /// The width of the field, in bits.
+        bits: u32,
+    },
+}
+
+impl fmt::Display for AsmError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Parse(error) => write!(f, "{error}"),
+            Self::UndefinedLabel { line, label } => {
+                write!(f, "line {line}: undefined label '{label}'")
+            }
+            Self::OffsetOutOfRange { line, offset, bits } => {
+                write!(
+                    f,
+                    "line {line}: offset {offset} does not fit a {bits}-bit field"
+                )
+            }
+            Self::ImmediateOutOfRange { line, value } => {
+                write!(
+                    f,
+                    "line {line}: immediate {value} does not fit the 5-bit field"
+                )
+            }
+            Self::ValueOutOfRange { line, value, bits } => {
+                write!(
+                    f,
+                    "line {line}: value {value} does not fit a {bits}-bit field"
+                )
+            }
+        }
+    }
+}
+
+impl Error for AsmError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Parse(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<ParseError> for AsmError {
+    fn from(error: ParseError) -> Self {
+        Self::Parse(error)
+    }
+}

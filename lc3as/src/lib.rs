@@ -8,10 +8,12 @@
 //! instruction-set kernel, so the assembler and the virtual machine agree on
 //! every bit of the instruction set.
 
+mod codegen;
 mod error;
 mod lexer;
 mod parser;
 
-pub use error::{LexError, ParseError};
+pub use codegen::{Image, assemble};
+pub use error::{AsmError, LexError, ParseError};
 pub use lexer::{Token, TokenKind, tokenize};
 pub use parser::{Fill, Operation, Program, Segment, Statement, Target, parse};

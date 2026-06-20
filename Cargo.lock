@@ -281,6 +281,9 @@ version = "0.4.0"
 [[package]]
 name = "lc3dsm"
 version = "0.4.0"
+dependencies = [
+ "lc3core",
+]
 
 [[package]]
 name = "lc3vm"

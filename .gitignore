@@ -13,5 +13,8 @@ target/
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
+# Object files assembled at the repository root (committed fixtures live in examples/)
+/*.obj
+
 # OS files
 .DS_Store

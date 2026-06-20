@@ -1019,6 +1019,20 @@ mod tests {
     }
 
     #[test]
+    fn an_assembled_hello_world_runs_to_its_greeting() {
+        // Closes the author -> assemble -> run loop: source through `lc3as`
+        // produces an image the VM runs to the same greeting as the object.
+        let source = include_str!("../../examples/hello-world.asm");
+        let image = lc3as::assemble(source).expect("hello-world.asm assembles");
+        let (mut vm, output) = vm_with_console(b"");
+        for block in &image.blocks {
+            vm.load_image(block).expect("image fits");
+        }
+        vm.run().expect("assembled hello-world runs to HALT");
+        assert_eq!(output.borrow().as_slice(), b"Hello World!");
+    }
+
+    #[test]
     fn game_2048_example_initializes_and_renders() {
         // Drives a few moves; the scripted input runs out via GETC and stops it.
         let output = run_example_bounded("2048.obj", b"wasdq", 50_000_000);

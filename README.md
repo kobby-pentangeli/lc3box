@@ -6,7 +6,7 @@
 
 Pure-Rust toolbox for the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) assembly language and instruction-set architecture. The goal is a complete LC-3 toolchain---assembler, disassembler, compiler, and virtual machine---sharing one instruction-set kernel.
 
-Today the workspace ships that shared kernel and a virtual machine that runs pre-assembled LC-3 object files; the assembler, disassembler, and compiler are in progress.
+Today the workspace ships that shared kernel, an assembler that turns LC-3 source into object files, and a virtual machine that runs them; a disassembler and compiler are planned.
 
 ## Status
 
@@ -14,7 +14,7 @@ Today the workspace ships that shared kernel and a virtual machine that runs pre
 | ---------------------- | --------- | --------- |
 | Instruction-set kernel | `lc3core` | Available |
 | Virtual machine        | `lc3vm`   | Available |
-| Assembler              | `lc3as`   | Planned   |
+| Assembler              | `lc3as`   | Available |
 | Disassembler           | `lc3dsm`  | Planned   |
 | Compiler               | `lc3c`    | Planned   |
 
@@ -23,17 +23,20 @@ Today the workspace ships that shared kernel and a virtual machine that runs pre
 ```text
 lc3box/
 ├── lc3core/    # Shared instruction-set kernel: opcodes, registers, traps, memory map, .obj format
+├── lc3as/      # Assembler: a two-pass translator from .asm source to .obj object files
 ├── lc3vm/      # Virtual machine: a fetch–decode–execute interpreter for .obj programs
-└── examples/   # Pre-assembled LC-3 programs (.obj) and a sample assembly listing
+└── examples/   # LC-3 programs: .asm source and pre-assembled .obj
 ```
 
 ## Architecture
 
 ![LC-3 Box architecture diagram](assets/lc3box-arch.png)
 
-Every tool builds on `lc3core`, the single source of truth for the LC-3 instruction set: the opcode set, the register and condition-code model, the trap vectors, the memory-map constants, and the big-endian `.obj` object-file format. `lc3vm` loads an object file into a full 16-bit address space and runs it through the classic fetch–decode–execute loop pictured above.
+Every tool builds on `lc3core`, the single source of truth for the LC-3 instruction set: the opcode set, the register and condition-code model, the trap vectors, the memory-map constants, and the big-endian `.obj` object-file format. `lc3as` encodes assembly source into that object format, and `lc3vm` loads an object file into a full 16-bit address space and runs it through the classic fetch–decode–execute loop pictured above---both going through `lc3core`, so every bit the assembler writes is the bit the VM decodes.
 
 ## Usage
+
+### Run a program
 
 The [examples](examples) folder contains pre-assembled LC-3 programs (`.obj`). Run any of them with:
 
@@ -43,11 +46,21 @@ cargo run -p lc3vm -- examples/<program_name>.obj
 
 For instance, `cargo run -p lc3vm -- examples/2048.obj` plays a terminal build of 2048; `rogue` and `hello-world` are also included. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit.
 
-[examples/bootstrap.asm](examples/bootstrap.asm) is a sample assembly listing; assemble it with any LC-3 assembler---including a web-based one---to produce an `.obj` this VM can run.
+### Assemble and run
 
-To install the VM as an `lc3vm` binary on your `PATH`:
+Assemble an LC-3 source listing into an object file, then run it on the VM:
 
 ```sh
+cargo run -p lc3as -- examples/hello-world.asm -o hello-world.obj
+cargo run -p lc3vm -- hello-world.obj
+```
+
+When `-o` is omitted, `lc3as` writes the object next to the source with a `.obj` extension. A program split across several `.ORIG`/`.END` segments---like [examples/bootstrap.asm](examples/bootstrap.asm)---is assembled into one object file per segment.
+
+To install the tools as `lc3as` and `lc3vm` binaries on your `PATH`:
+
+```sh
+cargo install --path lc3as
 cargo install --path lc3vm
 ```
 

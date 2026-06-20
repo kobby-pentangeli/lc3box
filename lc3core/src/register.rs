@@ -51,9 +51,84 @@ impl ConditionFlag {
     }
 }
 
+/// Parses a register token `R0`–`R7`, case-insensitively, to its three-bit
+/// register number.
+///
+/// Returns `None` for anything that is not one of the eight general-purpose
+/// register names, including `R8` and bare `R`.
+pub fn parse_register(token: &str) -> Option<u16> {
+    match token.strip_prefix(['R', 'r'])?.as_bytes() {
+        [digit @ b'0'..=b'7'] => Some(u16::from(digit - b'0')),
+        _ => None,
+    }
+}
+
+/// Parses a `BR`-family branch mnemonic, case-insensitively, to its three-bit
+/// `N`/`Z`/`P` condition field (`N` = bit 2, `Z` = bit 1, `P` = bit 0).
+///
+/// Bare `BR` and `BRnzp` are the unconditional branch, with all three bits set.
+/// The documented condition combinations are accepted; a token that is not a
+/// `BR`-family mnemonic, or that carries an unrecognized suffix, yields `None`.
+pub fn parse_branch_condition(mnemonic: &str) -> Option<u16> {
+    let suffix = mnemonic.to_ascii_uppercase();
+    let n = ConditionFlag::Negative.bits();
+    let z = ConditionFlag::Zero.bits();
+    let p = ConditionFlag::Positive.bits();
+
+    match suffix.strip_prefix("BR")? {
+        "" | "NZP" => Some(n | z | p),
+        "N" => Some(n),
+        "Z" => Some(z),
+        "P" => Some(p),
+        "NZ" => Some(n | z),
+        "NP" => Some(n | p),
+        "ZP" => Some(z | p),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ConditionFlag;
+    use super::{ConditionFlag, parse_branch_condition, parse_register};
+
+    #[test]
+    fn register_tokens_parse_case_insensitively() {
+        assert_eq!(parse_register("R0"), Some(0));
+        assert_eq!(parse_register("r7"), Some(7));
+    }
+
+    #[test]
+    fn non_register_tokens_are_rejected() {
+        // Out-of-range index, missing index, wrong prefix, and multi-digit
+        // tokens are all rejected rather than silently clamped or truncated.
+        assert_eq!(parse_register("R8"), None);
+        assert_eq!(parse_register("R"), None);
+        assert_eq!(parse_register("X0"), None);
+        assert_eq!(parse_register("R10"), None);
+    }
+
+    #[test]
+    fn branch_mnemonics_map_to_their_condition_field() {
+        // N = bit 2, Z = bit 1, P = bit 0.
+        assert_eq!(parse_branch_condition("BRn"), Some(0b100));
+        assert_eq!(parse_branch_condition("brz"), Some(0b010));
+        assert_eq!(parse_branch_condition("BRp"), Some(0b001));
+        assert_eq!(parse_branch_condition("BRzp"), Some(0b011));
+    }
+
+    #[test]
+    fn bare_and_full_branch_are_unconditional() {
+        assert_eq!(parse_branch_condition("BR"), Some(0b111));
+        assert_eq!(parse_branch_condition("BRnzp"), Some(0b111));
+    }
+
+    #[test]
+    fn malformed_branch_mnemonics_are_rejected() {
+        // A non-branch mnemonic, and a suffix outside the documented set.
+        assert_eq!(parse_branch_condition("ADD"), None);
+        assert_eq!(parse_branch_condition("BRpn"), None);
+        assert_eq!(parse_branch_condition("BRx"), None);
+    }
 
     #[test]
     fn sign_of_result_selects_the_flag() {

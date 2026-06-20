@@ -24,6 +24,32 @@ pub enum TrapVector {
     Halt = 0x25,
 }
 
+impl TrapVector {
+    /// Parses a named trap alias, case-insensitively, to its vector.
+    ///
+    /// Recognizes the six service-routine names (`GETC`, `OUT`, `PUTS`, `IN`,
+    /// `PUTSP`, `HALT`); returns `None` for any other token.
+    pub fn from_mnemonic(token: &str) -> Option<Self> {
+        match token.to_ascii_uppercase().as_str() {
+            "GETC" => Some(Self::Getc),
+            "OUT" => Some(Self::Out),
+            "PUTS" => Some(Self::Puts),
+            "IN" => Some(Self::In),
+            "PUTSP" => Some(Self::Putsp),
+            "HALT" => Some(Self::Halt),
+            _ => None,
+        }
+    }
+
+    /// The eight-bit vector this routine occupies in a `TRAP` instruction's
+    /// `[7:0]` field. The inverse of decoding that field with [`try_from`].
+    ///
+    /// [`try_from`]: Self::try_from
+    pub const fn code(self) -> u16 {
+        self as u16
+    }
+}
+
 impl TryFrom<u16> for TrapVector {
     /// The unrecognized vector value.
     type Error = u16;
@@ -55,5 +81,28 @@ mod tests {
     fn unknown_vector_is_rejected_with_its_value() {
         assert_eq!(TrapVector::try_from(0x26), Err(0x26));
         assert_eq!(TrapVector::try_from(0x00), Err(0x00));
+    }
+
+    #[test]
+    fn aliases_parse_case_insensitively() {
+        assert_eq!(TrapVector::from_mnemonic("HALT"), Some(TrapVector::Halt));
+        assert_eq!(TrapVector::from_mnemonic("getc"), Some(TrapVector::Getc));
+        assert_eq!(TrapVector::from_mnemonic("PUTSP"), Some(TrapVector::Putsp));
+        assert_eq!(TrapVector::from_mnemonic("RET"), None);
+    }
+
+    #[test]
+    fn code_is_the_inverse_of_decoding_the_field() {
+        for trap in [
+            TrapVector::Getc,
+            TrapVector::Out,
+            TrapVector::Puts,
+            TrapVector::In,
+            TrapVector::Putsp,
+            TrapVector::Halt,
+        ] {
+            assert_eq!(TrapVector::try_from(trap.code()), Ok(trap));
+        }
+        assert_eq!(TrapVector::Halt.code(), 0x25);
     }
 }

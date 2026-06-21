@@ -7,11 +7,5 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 
-[[bin]]
-name = "lc3as"
-path = "src/main.rs"
-
 [dependencies]
 lc3core.workspace = true
-
-clap.workspace = true

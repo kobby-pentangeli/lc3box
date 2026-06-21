@@ -1,10 +1,11 @@
 # LC3 Box
 
 [![CI](https://github.com/kobby-pentangeli/lc3box/workflows/CI/badge.svg)](https://github.com/kobby-pentangeli/lc3box/actions)
+[![Crates.io](https://img.shields.io/crates/v/lc3box.svg)](https://crates.io/crates/lc3box)
 [![Release](https://img.shields.io/github/v/release/kobby-pentangeli/lc3box?sort=semver)](https://github.com/kobby-pentangeli/lc3box/releases)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-Pure-Rust toolbox for the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) assembly language and instruction-set architecture. The goal is a complete LC-3 toolchain---assembler, disassembler, compiler, and virtual machine---sharing one instruction-set kernel.
+Toolbox for the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) assembly language and instruction-set architecture. The goal is a complete LC-3 toolchain---assembler, disassembler, compiler, and virtual machine---sharing one instruction-set kernel.
 
 Today the workspace ships that shared kernel and three tool libraries---an assembler that turns LC-3 source into object files, a virtual machine that runs them, and a disassembler that turns them back into readable assembly---all driven through `lc3box`, a single command-line front end; a compiler is planned.
 
@@ -77,10 +78,19 @@ cargo run -p lc3box -- disasm examples/hello-world.obj -o hello-world.asm
 cargo run -p lc3box -- asm hello-world.asm -o hello-world.obj
 ```
 
-To install `lc3box` on your `PATH`:
+To install the `lc3box` command-line tool on your `PATH`---from crates.io, straight from the repository, or from a local checkout:
 
 ```sh
+cargo install lc3box
+cargo install --git https://github.com/kobby-pentangeli/lc3box
 cargo install --path lc3box
+```
+
+To use the toolbox as a library, depend on the `lc3box` umbrella (reaching `lc3box::kernel`/`vm`/`asm`/`dsm`) or on an individual tool crate directly:
+
+```sh
+cargo add lc3box
+cargo add lc3as
 ```
 
 ## Development

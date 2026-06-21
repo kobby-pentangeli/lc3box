@@ -5,6 +5,7 @@
 //! memory-map constants, the `.obj` object-file format, the assembly pseudo-ops,
 //! and the signed and unsigned field helpers---the vocabulary every tool in the
 //! toolbox shares.
+#![deny(missing_docs, rustdoc::broken_intra_doc_links)]
 
 mod object;
 mod opcode;

@@ -1,4 +1,5 @@
 //! End-to-end tests for the `lc3box` command-line binary.
+#![cfg(feature = "cli")]
 
 use std::path::PathBuf;
 use std::process::Command;

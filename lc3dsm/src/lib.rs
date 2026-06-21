@@ -9,6 +9,7 @@
 //! shared `lc3core` instruction-set kernel, so the disassembler and the
 //! assembler agree on every bit of the instruction set---reassembling a
 //! disassembled object reproduces the original image.
+#![deny(missing_docs, rustdoc::broken_intra_doc_links)]
 
 mod instruction;
 mod listing;

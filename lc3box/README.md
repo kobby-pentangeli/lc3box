@@ -64,11 +64,32 @@ cargo run -p lc3box -- run examples/hello-world.asm
 Hello World!
 ```
 
+## Library
+
+`lc3box` is also an umbrella library that re-exports the tool crates under short module names, so one dependency reaches the whole toolbox: `lc3box::kernel` ([`lc3core`](../lc3core)), `lc3box::vm` ([`lc3vm`](../lc3vm)), `lc3box::asm` ([`lc3as`](../lc3as)), and `lc3box::dsm` ([`lc3dsm`](../lc3dsm)).
+
+```rust
+use lc3box::{asm, dsm, vm};
+
+let image = asm::assemble(".ORIG x3000\nHALT\n.END\n")?;
+let listing = dsm::disassemble(&image.blocks[0]);
+let mut machine = vm::Lc3VM::new();
+machine.load_program(&image.blocks)?;
+```
+
+Each module sits behind a like-named feature; `full` enables all four, and the default `cli` feature additionally builds the binary. Depend on `lc3box` with `default-features = false` and a single feature to pull in one tool alone, or on the individual tool crates directly for the most granular build:
+
+```toml
+lc3box = { version = "0.6", default-features = false, features = ["asm"] }
+```
+
 ## Install
 
-Install `lc3box` on your `PATH`:
+Install the `lc3box` command-line tool on your `PATH`---from crates.io, straight from the repository, or from a local checkout:
 
 ```sh
+cargo install lc3box
+cargo install --git https://github.com/kobby-pentangeli/lc3box
 cargo install --path .
 ```
 

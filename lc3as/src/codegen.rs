@@ -21,6 +21,7 @@ use crate::{AsmError, Fill, Operation, Segment, Statement, Target, parse};
 /// Each becomes a standard single-origin [`ObjectFile`], and the program as a
 /// whole is this ordered collection of blocks, which a loader places one by one.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Image {
     /// The object blocks, one per `.ORIG` segment, in source order.
     pub blocks: Vec<ObjectFile>,
@@ -28,8 +29,8 @@ pub struct Image {
 
 /// Assembles LC-3 `source` into an [`Image`].
 ///
-/// Runs both passes: [`parse`] lays out addresses and the symbol table, then
-/// each statement is encoded into machine words with its label references
+/// Runs both passes: the first lays out addresses and builds the symbol table,
+/// then each statement is encoded into machine words with its label references
 /// resolved and its operand fields range-checked.
 ///
 /// Returns an [`AsmError`] for a first-pass fault, an undefined label, or a

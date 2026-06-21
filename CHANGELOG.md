@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-21
+
+Makes the toolbox publish-ready: `lc3box` becomes an umbrella library as well as a command-line driver, so the whole toolbox---or any single tool---is reachable through one dependency, and the libraries' public APIs are stabilized for `crates.io`.
+
+### Added
+
+- **`lc3box` as an umbrella library.** Alongside the command-line binary, `lc3box` now re-exports the tools as `lc3box::kernel` (`lc3core`), `lc3box::vm` (`lc3vm`), `lc3box::asm` (`lc3as`), and `lc3box::dsm` (`lc3dsm`), so `cargo add lc3box` reaches the whole toolbox through a single dependency. Each module sits behind a like-named feature---`full` enables all four, and the default `cli` feature additionally builds the binary---so a dependent can pull in just one tool with `default-features = false`.
+- crates.io publishing metadata for `lc3box`, completing the metadata across the family.
+
+### Changed
+
+- The library crates' public APIs are stabilized for publishing: every public item is documented, and the error types and the assembler's `Image` are `#[non_exhaustive]` so they can gain variants and fields without a breaking change.
+- `lc3as` now exposes a focused public API---`assemble`, `Image`, and the error types (`AsmError`, `LexError`, `ParseError`)---with the lexer and parser kept internal, so future changes to them are not breaking.
+
 ## [0.5.0] - 2026-06-21
 
 Introduces `lc3box`, a single command-line driver for the whole toolbox---`run`, `asm`, and `disasm` in one binary---and turns the individual tools into pure libraries.
@@ -97,8 +111,9 @@ When adding entries to this changelog for future releases:
 1. **Format**: Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 2. **Categories**: Use Added, Changed, Deprecated, Removed, Fixed, Security
 3. **Audience**: Write for users, not developers (focus on impact, not implementation)
-4. **Links**: Add comparison links at the bottom: `[0.6.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.5.0...v0.6.0`
+4. **Links**: Add comparison links at the bottom: `[0.7.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.6.0...v0.7.0`
 
+[0.6.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.2.0...v0.3.0

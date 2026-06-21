@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["lc3core", "lc3vm", "lc3as", "lc3dsm"]
+members = ["lc3core", "lc3vm", "lc3as", "lc3dsm", "lc3box"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -11,8 +11,10 @@ repository = "https://github.com/kobby-pentangeli/lc3box"
 readme = "README.md"
 
 [workspace.dependencies]
-lc3core = { path = "lc3core", version = "0.4.0" }
-lc3as = { path = "lc3as", version = "0.4.0" }
+lc3core = { path = "lc3core", version = "0.5.0" }
+lc3vm = { path = "lc3vm", version = "0.5.0" }
+lc3as = { path = "lc3as", version = "0.5.0" }
+lc3dsm = { path = "lc3dsm", version = "0.5.0" }
 
 clap = { version = "4.6", features = ["derive"] }
 criterion = { version = "0.8", default-features = false, features = [

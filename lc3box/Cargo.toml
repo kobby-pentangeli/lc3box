@@ -10,11 +10,21 @@ readme.workspace = true
 [[bin]]
 name = "lc3box"
 path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+kernel = ["dep:lc3core"]
+vm = ["dep:lc3vm", "kernel"]
+asm = ["dep:lc3as", "kernel"]
+dsm = ["dep:lc3dsm", "kernel"]
+full = ["vm", "asm", "dsm"]
+cli = ["full", "dep:clap"]
 
 [dependencies]
-lc3core.workspace = true
-lc3vm.workspace = true
-lc3as.workspace = true
-lc3dsm.workspace = true
+lc3core = { workspace = true, optional = true }
+lc3vm = { workspace = true, optional = true }
+lc3as = { workspace = true, optional = true }
+lc3dsm = { workspace = true, optional = true }
 
-clap = { version = "4.6", features = ["derive"] }
+clap = { version = "4.6", features = ["derive"], optional = true }

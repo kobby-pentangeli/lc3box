@@ -3,6 +3,7 @@ use std::fmt;
 
 /// The reason a source program could not be tokenized.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LexError {
     /// A `#` or `x` literal, or a bare digit run, that is not a well-formed
     /// number.
@@ -83,6 +84,7 @@ impl Error for LexError {}
 /// Every variant but [`MissingOrig`](Self::MissingOrig) carries the 1-based
 /// source line at fault.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ParseError {
     /// Tokenizing the source failed.
     Lex(LexError),
@@ -231,6 +233,7 @@ impl From<LexError> for ParseError {
 /// second-pass faults---an unresolved label, or a value too large for the
 /// instruction field that holds it---each carrying the 1-based source line.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AsmError {
     /// The first pass---lexing and parsing---failed.
     Parse(ParseError),

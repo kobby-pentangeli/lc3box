@@ -3,6 +3,7 @@
 //! `lc3vm` executes pre-assembled LC-3 object files against the instruction-set
 //! kernel in [`lc3core`]. It owns the runtime state---[`Memory`] and
 //! [`Registers`]---and the fetch–decode–execute loop in [`Lc3VM`].
+#![deny(missing_docs, rustdoc::broken_intra_doc_links)]
 
 mod console;
 mod error;

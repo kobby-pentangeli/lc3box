@@ -18,6 +18,7 @@ pub struct ObjectFile {
 
 /// The reason a byte stream could not be decoded as a `.obj` image.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ObjectError {
     /// The stream was shorter than the single word required for the origin.
     MissingOrigin,

@@ -17,12 +17,15 @@ lc3core.workspace = true
 thiserror.workspace = true
 
 [target.'cfg(unix)'.dependencies]
-libc.workspace = true
-termios.workspace = true
+libc = "0.2"
+termios = "0.3"
 
 [dev-dependencies]
-criterion.workspace = true
 lc3as.workspace = true
+
+criterion = { version = "0.8", default-features = false, features = [
+    "cargo_bench_support",
+] }
 
 [[bench]]
 name = "interpreter"

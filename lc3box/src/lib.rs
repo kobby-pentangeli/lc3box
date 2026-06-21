@@ -27,12 +27,17 @@
 //! let mut machine = vm::Lc3VM::new();
 //! machine.load_program(&image.blocks).expect("loads");
 //! ```
+#![deny(missing_docs, rustdoc::broken_intra_doc_links)]
 
+/// The assembler ([`lc3as`]).
 #[cfg(feature = "asm")]
 pub use lc3as as asm;
+/// The shared instruction-set kernel ([`lc3core`]).
 #[cfg(feature = "kernel")]
 pub use lc3core as kernel;
+/// The disassembler ([`lc3dsm`]).
 #[cfg(feature = "dsm")]
 pub use lc3dsm as dsm;
+/// The virtual machine ([`lc3vm`]).
 #[cfg(feature = "vm")]
 pub use lc3vm as vm;

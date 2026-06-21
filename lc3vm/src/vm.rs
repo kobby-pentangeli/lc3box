@@ -64,6 +64,34 @@ impl Lc3VM {
     /// Returns [`Error::ProgramOutOfRange`] if the image's words would extend
     /// past the top of the address space.
     pub(crate) fn load_image(&mut self, image: &ObjectFile) -> Result<(), Error> {
+        self.load_image_internal(image)?;
+        self.registers.pc = image.origin;
+        Ok(())
+    }
+
+    /// Loads every segment of an assembled `program` at its origin and points
+    /// the program counter at the first segment---the program's entry---ready
+    /// to [`run`](Self::run).
+    ///
+    /// A single-segment program (one `.ORIG`, or a lone object file) loads at
+    /// its origin and starts there; a multi-segment program places each
+    /// segment independently and enters at the first.
+    ///
+    /// Returns [`Error::ProgramOutOfRange`] if any segment's words would extend
+    /// past the top of the address space.
+    pub fn load_program(&mut self, program: &[ObjectFile]) -> Result<(), Error> {
+        program
+            .iter()
+            .try_for_each(|segment| self.load_image_internal(segment))?;
+        if let Some(entry) = program.first() {
+            self.registers.pc = entry.origin;
+        }
+        Ok(())
+    }
+
+    /// Copies `image`'s words into memory at its origin, leaving the program
+    /// counter unchanged.
+    fn load_image_internal(&mut self, image: &ObjectFile) -> Result<(), Error> {
         self.memory
             .region_mut(image.origin, image.words.len())
             .ok_or(Error::ProgramOutOfRange {
@@ -71,7 +99,6 @@ impl Lc3VM {
                 words: image.words.len(),
             })?
             .copy_from_slice(&image.words);
-        self.registers.pc = image.origin;
         Ok(())
     }
 
@@ -989,6 +1016,29 @@ mod tests {
         assert_eq!(vm.registers.pc, 0x3000);
         assert_eq!(vm.memory.read(0x3000), 0x1234);
         assert_eq!(vm.memory.read(0x3001), 0x5678);
+    }
+
+    #[test]
+    fn load_program_places_every_segment_and_enters_at_the_first() {
+        // Two segments at disjoint origins; the program counter must land on
+        // the first (the entry), not the last segment loaded.
+        let program = [
+            ObjectFile {
+                origin: 0x3000,
+                words: vec![0x1234, 0x5678],
+            },
+            ObjectFile {
+                origin: 0x4000,
+                words: vec![0x9ABC],
+            },
+        ];
+        let mut vm = Lc3VM::new();
+        vm.load_program(&program).expect("segments fit");
+
+        assert_eq!(vm.registers.pc, 0x3000);
+        assert_eq!(vm.memory.read(0x3000), 0x1234);
+        assert_eq!(vm.memory.read(0x3001), 0x5678);
+        assert_eq!(vm.memory.read(0x4000), 0x9ABC);
     }
 
     #[test]

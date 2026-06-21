@@ -282,6 +282,7 @@ dependencies = [
  "lc3as",
  "lc3core",
  "lc3dsm",
+ "lc3vm",
 ]
 
 [[package]]

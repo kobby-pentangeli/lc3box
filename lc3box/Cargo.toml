@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 lc3core.workspace = true
+lc3vm.workspace = true
 lc3as.workspace = true
 lc3dsm.workspace = true
 

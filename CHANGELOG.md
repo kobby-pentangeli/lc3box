@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-21
+
+Introduces `lc3box`, a single command-line driver for the whole toolbox---`run`, `asm`, and `disasm` in one binary---and turns the individual tools into pure libraries.
+
+### Added
+
+- **`lc3box`**, a unified command-line driver with one subcommand per tool: `run` executes a program, `asm` assembles source into object files, and `disasm` disassembles an object back into a re-assemblable listing. A single install---`cargo install --path lc3box`---replaces the three separate tools, and `lc3box --help` lists every command.
+- `run` accepts assembly source directly: `lc3box run program.asm` assembles it in memory and executes it in one step, alongside `lc3box run program.obj` for a pre-assembled object---a tight edit-run loop.
+
+### Changed
+
+- `lc3vm`, `lc3as`, and `lc3dsm` are now pure libraries (with crates.io publishing metadata): their command-line use moves to the `lc3box` subcommands---`lc3as program.asm` becomes `lc3box asm program.asm`, and likewise for `run` and `disasm`. Using the crates as Rust libraries is unaffected.
+
+### Removed
+
+- The standalone `lc3vm`, `lc3as`, and `lc3dsm` command-line binaries; their functionality is now provided by the corresponding `lc3box` subcommands.
+
 ## [0.4.0] - 2026-06-21
 
 Adds `lc3dsm`, the LC-3 disassembler---the assembler's inverse---closing the assemble/disassemble loop: any object file can now be turned back into readable, re-assemblable assembly, so assembled programs are no longer opaque.
@@ -80,8 +97,9 @@ When adding entries to this changelog for future releases:
 1. **Format**: Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 2. **Categories**: Use Added, Changed, Deprecated, Removed, Fixed, Security
 3. **Audience**: Write for users, not developers (focus on impact, not implementation)
-4. **Links**: Add comparison links at the bottom: `[0.5.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.4.0...v0.5.0`
+4. **Links**: Add comparison links at the bottom: `[0.6.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.5.0...v0.6.0`
 
+[0.5.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.1.0...v0.2.0

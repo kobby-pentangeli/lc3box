@@ -85,9 +85,11 @@ lc3box = { version = "0.6", default-features = false, features = ["asm"] }
 
 ## Install
 
-Install `lc3box` on your `PATH`:
+Install the `lc3box` command-line tool on your `PATH`---from crates.io, straight from the repository, or from a local checkout:
 
 ```sh
+cargo install lc3box
+cargo install --git https://github.com/kobby-pentangeli/lc3box
 cargo install --path .
 ```
 

@@ -1,11 +1,15 @@
 [package]
 name = "lc3box"
+description = "Unified command-line driver and umbrella library for the LC-3 toolbox: run, assemble, and disassemble Little Computer 3 programs"
+keywords = ["lc3", "assembly", "emulator", "assembler", "toolbox"]
+categories = ["emulators", "command-line-utilities", "development-tools"]
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-readme.workspace = true
+homepage.workspace = true
+readme = "README.md"
 
 [[bin]]
 name = "lc3box"

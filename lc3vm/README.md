@@ -25,19 +25,17 @@ An unrecognized trap vector is reported as an error rather than executed.
 
 ## Usage
 
-Run any of the example programs in the repository's [examples](../examples) folder:
+`lc3vm` is a library crate; the command-line front end is [`lc3box`](../lc3box), whose `run` subcommand executes any of the example programs in the repository's [examples](../examples) folder:
 
 ```sh
-cargo run -p lc3vm -- examples/<program_name>.obj
+cargo run -p lc3box -- run examples/<program_name>.obj
 ```
 
 `2048` and `rogue` are interactive; `hello-world` prints a greeting and halts. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit, including on error.
 
-To install the VM as an `lc3vm` binary on your `PATH`:
+To drive the VM from Rust, depend on `lc3vm` and use [`Lc3VM`]: load a program with `Lc3VM::init_from_program` (from a path) or `load_program` (from an assembled image), then call `run`.
 
-```sh
-cargo install --path .
-```
+[`Lc3VM`]: https://docs.rs/lc3vm
 
 ## License
 

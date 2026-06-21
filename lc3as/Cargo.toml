@@ -1,17 +1,15 @@
 [package]
 name = "lc3as"
+description = "Assembler for the LC-3 that translates assembly source into big-endian object files"
+keywords = ["lc3", "assembler", "assembly", "compiler", "isa"]
+categories = ["compilers", "parser-implementations"]
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-readme.workspace = true
-
-[[bin]]
-name = "lc3as"
-path = "src/main.rs"
+homepage.workspace = true
+readme = "README.md"
 
 [dependencies]
 lc3core.workspace = true
-
-clap.workspace = true

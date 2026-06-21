@@ -1,20 +1,18 @@
 [package]
 name = "lc3dsm"
+description = "Disassembler for the LC-3 that decodes object files into re-assemblable annotated assembly listings"
+keywords = ["lc3", "disassembler", "decoder", "assembly", "isa"]
+categories = ["compilers", "development-tools"]
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-readme.workspace = true
-
-[[bin]]
-name = "lc3dsm"
-path = "src/main.rs"
+homepage.workspace = true
+readme = "README.md"
 
 [dependencies]
 lc3core.workspace = true
-
-clap.workspace = true
 
 [dev-dependencies]
 lc3as.workspace = true

@@ -28,29 +28,25 @@ A source file may contain several `.ORIG`/`.END` segments; each is assembled int
 
 ## Usage
 
-Assemble a source file; the object is written next to it with a `.obj` extension:
+`lc3as` is a library crate; the command-line frontend is [`lc3box`](../lc3box), whose `asm` subcommand assembles a source file. The object is written next to it with a `.obj` extension:
 
 ```sh
-cargo run -p lc3as -- program.asm
+cargo run -p lc3box -- asm program.asm
 ```
 
 Choose the output path with `-o`/`--output`:
 
 ```sh
-cargo run -p lc3as -- program.asm -o build/program.obj
+cargo run -p lc3box -- asm program.asm -o build/program.obj
 ```
 
-A program split across several segments is written as one object file per segment, each suffixed with its origin (for example `program-3000.obj`), and every written path is printed. Malformed source is reported with the offending line number and a non-zero exit status. Run the result on the virtual machine:
+A program split across several segments is written as one object file per segment, each suffixed with its origin (for example `program-3000.obj`), and every written path is printed. Malformed source is reported with the offending line number and a non-zero exit status. Run the result with the `run` subcommand:
 
 ```sh
-cargo run -p lc3vm -- program.obj
+cargo run -p lc3box -- run program.obj
 ```
 
-To install `lc3as` on your `PATH`:
-
-```sh
-cargo install --path .
-```
+To assemble from Rust, depend on `lc3as` and call `assemble`, which returns the assembled image.
 
 ## Example
 
@@ -67,8 +63,8 @@ HELLO   .STRINGZ "Hello World!"
 ```
 
 ```sh
-cargo run -p lc3as -- examples/hello-world.asm -o hello-world.obj
-cargo run -p lc3vm -- hello-world.obj
+cargo run -p lc3box -- asm examples/hello-world.asm -o hello-world.obj
+cargo run -p lc3box -- run hello-world.obj
 ```
 
 ## License

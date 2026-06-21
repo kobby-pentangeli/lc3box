@@ -11,5 +11,7 @@
 //! disassembled object reproduces the original image.
 
 mod instruction;
+mod listing;
 
 pub use instruction::{Instruction, decode};
+pub use listing::disassemble;

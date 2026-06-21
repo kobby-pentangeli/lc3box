@@ -18,7 +18,10 @@ pub use memory::{KBDR, KBSR, MEMORY_SIZE, PC_START};
 pub use object::{ObjectError, ObjectFile};
 pub use opcode::Opcode;
 pub use pseudo::PseudoOp;
-pub use register::{ConditionFlag, GP_REGISTER_COUNT, parse_branch_condition, parse_register};
+pub use register::{
+    ConditionFlag, GP_REGISTER_COUNT, branch_mnemonic, parse_branch_condition, parse_register,
+    register_name,
+};
 pub use trap::TrapVector;
 
 /// Sign-extends the low `bit_count` bits of `value` to a full 16-bit word.

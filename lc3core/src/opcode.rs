@@ -119,6 +119,38 @@ impl Opcode {
             _ => None,
         }
     }
+
+    /// The assembly mnemonic naming this operation, or `None` when no
+    /// single mnemonic does.
+    ///
+    /// The inverse of [`from_mnemonic`](Self::from_mnemonic): every opcode that
+    /// `from_mnemonic` produces maps back to a mnemonic that re-parses to it. The
+    /// operations sharing an opcode render as their base form, [`Jsr`](Self::Jsr)
+    /// as `JSR` and [`Jmp`](Self::Jmp) as `JMP`, leaving the `JSRR`/`RET`
+    /// refinement to the operand bits. [`Br`](Self::Br) returns `None` because
+    /// its mnemonic is fixed by the condition field
+    /// ([`branch_mnemonic`](crate::branch_mnemonic)), and [`Res`](Self::Res)
+    /// returns `None` because the reserved opcode names no operation; a word with
+    /// either is rendered as data rather than as an instruction.
+    pub const fn mnemonic(self) -> Option<&'static str> {
+        match self {
+            Self::Add => Some("ADD"),
+            Self::And => Some("AND"),
+            Self::Not => Some("NOT"),
+            Self::Ld => Some("LD"),
+            Self::Ldi => Some("LDI"),
+            Self::Ldr => Some("LDR"),
+            Self::Lea => Some("LEA"),
+            Self::St => Some("ST"),
+            Self::Sti => Some("STI"),
+            Self::Str => Some("STR"),
+            Self::Jmp => Some("JMP"),
+            Self::Jsr => Some("JSR"),
+            Self::Rti => Some("RTI"),
+            Self::Trap => Some("TRAP"),
+            Self::Br | Self::Res => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -196,5 +228,43 @@ mod tests {
         assert_eq!(Opcode::from_mnemonic(".ORIG"), None);
         assert_eq!(Opcode::from_mnemonic("HALT"), None);
         assert_eq!(Opcode::from_mnemonic("R0"), None);
+    }
+
+    #[test]
+    fn mnemonic_inverts_from_mnemonic() {
+        // Every opcode that names an operation re-parses to itself; the two that
+        // name none are exactly the condition-fixed branch and the reserved slot.
+        let all = [
+            Opcode::Br,
+            Opcode::Add,
+            Opcode::Ld,
+            Opcode::St,
+            Opcode::Jsr,
+            Opcode::And,
+            Opcode::Ldr,
+            Opcode::Str,
+            Opcode::Rti,
+            Opcode::Not,
+            Opcode::Ldi,
+            Opcode::Sti,
+            Opcode::Jmp,
+            Opcode::Res,
+            Opcode::Lea,
+            Opcode::Trap,
+        ];
+        for op in all {
+            match op.mnemonic() {
+                Some(name) => assert_eq!(Opcode::from_mnemonic(name), Some(op)),
+                None => assert!(matches!(op, Opcode::Br | Opcode::Res)),
+            }
+        }
+    }
+
+    #[test]
+    fn shared_opcodes_render_their_base_mnemonic() {
+        // The base form, so the renderer can recover JSRR and RET from the
+        // operand bits rather than from the opcode alone.
+        assert_eq!(Opcode::Jsr.mnemonic(), Some("JSR"));
+        assert_eq!(Opcode::Jmp.mnemonic(), Some("JMP"));
     }
 }

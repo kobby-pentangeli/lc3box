@@ -1,0 +1,20 @@
+[package]
+name = "lc3dsm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[[bin]]
+name = "lc3dsm"
+path = "src/main.rs"
+
+[dependencies]
+lc3core.workspace = true
+
+clap.workspace = true
+
+[dev-dependencies]
+lc3as.workspace = true

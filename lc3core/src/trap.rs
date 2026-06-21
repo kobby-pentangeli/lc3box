@@ -41,6 +41,22 @@ impl TrapVector {
         }
     }
 
+    /// The named alias for this service routine---the mnemonic an assembler
+    /// accepts as shorthand for the corresponding `TRAP`.
+    ///
+    /// The inverse of [`from_mnemonic`](Self::from_mnemonic): the returned name
+    /// re-parses to the same vector. Total over the six routines.
+    pub const fn mnemonic(self) -> &'static str {
+        match self {
+            Self::Getc => "GETC",
+            Self::Out => "OUT",
+            Self::Puts => "PUTS",
+            Self::In => "IN",
+            Self::Putsp => "PUTSP",
+            Self::Halt => "HALT",
+        }
+    }
+
     /// The eight-bit vector this routine occupies in a `TRAP` instruction's
     /// `[7:0]` field. The inverse of decoding that field with [`try_from`].
     ///
@@ -89,6 +105,20 @@ mod tests {
         assert_eq!(TrapVector::from_mnemonic("getc"), Some(TrapVector::Getc));
         assert_eq!(TrapVector::from_mnemonic("PUTSP"), Some(TrapVector::Putsp));
         assert_eq!(TrapVector::from_mnemonic("RET"), None);
+    }
+
+    #[test]
+    fn mnemonic_inverts_from_mnemonic() {
+        for trap in [
+            TrapVector::Getc,
+            TrapVector::Out,
+            TrapVector::Puts,
+            TrapVector::In,
+            TrapVector::Putsp,
+            TrapVector::Halt,
+        ] {
+            assert_eq!(TrapVector::from_mnemonic(trap.mnemonic()), Some(trap));
+        }
     }
 
     #[test]

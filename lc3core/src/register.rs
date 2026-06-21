@@ -63,6 +63,24 @@ pub fn parse_register(token: &str) -> Option<u16> {
     }
 }
 
+/// The assembly name `R0`–`R7` of a three-bit register number.
+///
+/// The inverse of [`parse_register`]: the returned name re-parses to the same
+/// number. A value outside `0..8` yields `None`.
+pub const fn register_name(number: u16) -> Option<&'static str> {
+    match number {
+        0 => Some("R0"),
+        1 => Some("R1"),
+        2 => Some("R2"),
+        3 => Some("R3"),
+        4 => Some("R4"),
+        5 => Some("R5"),
+        6 => Some("R6"),
+        7 => Some("R7"),
+        _ => None,
+    }
+}
+
 /// Parses a `BR`-family branch mnemonic, case-insensitively, to its three-bit
 /// `N`/`Z`/`P` condition field (`N` = bit 2, `Z` = bit 1, `P` = bit 0).
 ///
@@ -87,14 +105,50 @@ pub fn parse_branch_condition(mnemonic: &str) -> Option<u16> {
     }
 }
 
+/// The `BR`-family mnemonic for a three-bit `N`/`Z`/`P` condition field
+/// (`N` = bit 2, `Z` = bit 1, `P` = bit 0).
+///
+/// The inverse of [`parse_branch_condition`]: the returned mnemonic re-parses to
+/// the same field. The all-set field renders as the bare unconditional `BR`. An
+/// empty field (`000`), and any value wider than three bits, yield `None`: no
+/// `BR` mnemonic encodes them, so such a word is data rather than a branch.
+pub const fn branch_mnemonic(nzp: u16) -> Option<&'static str> {
+    match nzp {
+        0b111 => Some("BR"),
+        0b100 => Some("BRn"),
+        0b010 => Some("BRz"),
+        0b001 => Some("BRp"),
+        0b110 => Some("BRnz"),
+        0b101 => Some("BRnp"),
+        0b011 => Some("BRzp"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ConditionFlag, parse_branch_condition, parse_register};
+    use super::{
+        ConditionFlag, branch_mnemonic, parse_branch_condition, parse_register, register_name,
+    };
 
     #[test]
     fn register_tokens_parse_case_insensitively() {
         assert_eq!(parse_register("R0"), Some(0));
         assert_eq!(parse_register("r7"), Some(7));
+    }
+
+    #[test]
+    fn register_name_inverts_parse_register() {
+        for number in 0..8u16 {
+            let name = register_name(number).expect("0..8 names a register");
+            assert_eq!(parse_register(name), Some(number));
+        }
+    }
+
+    #[test]
+    fn register_name_rejects_numbers_outside_the_file() {
+        assert_eq!(register_name(8), None);
+        assert_eq!(register_name(0xFFFF), None);
     }
 
     #[test]
@@ -120,6 +174,25 @@ mod tests {
     fn bare_and_full_branch_are_unconditional() {
         assert_eq!(parse_branch_condition("BR"), Some(0b111));
         assert_eq!(parse_branch_condition("BRnzp"), Some(0b111));
+    }
+
+    #[test]
+    fn branch_mnemonic_inverts_parse_branch_condition() {
+        // Every non-empty three-bit condition field names a branch that
+        // re-parses to it; the all-set field renders as the bare `BR`.
+        for nzp in 0b001..=0b111u16 {
+            let name = branch_mnemonic(nzp).expect("a non-empty condition field names a branch");
+            assert_eq!(parse_branch_condition(name), Some(nzp));
+        }
+        assert_eq!(branch_mnemonic(0b111), Some("BR"));
+    }
+
+    #[test]
+    fn empty_and_overlong_condition_fields_have_no_branch_mnemonic() {
+        // `000` is the empty field no `BR` mnemonic encodes; a value past three
+        // bits is not a condition field at all.
+        assert_eq!(branch_mnemonic(0b000), None);
+        assert_eq!(branch_mnemonic(0b1000), None);
     }
 
     #[test]

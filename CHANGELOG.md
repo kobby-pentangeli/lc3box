@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-21
+
+Adds `lc3dsm`, the LC-3 disassembler---the assembler's inverse---closing the assemble/disassemble loop: any object file can now be turned back into readable, re-assemblable assembly, so assembled programs are no longer opaque.
+
+### Added
+
+- **`lc3dsm`**, a new disassembler that decodes a big-endian `.obj` object file back into a readable, re-assemblable LC-3 assembly listing. It recovers labels from PC-relative references, renders the named trap aliases and the `BR` condition variants, prints registers and numbers in source form, and emits any word that is not a canonical instruction as a `.FILL`. Each line carries its address and hex encoding as a trailing `;` comment, so the same artifact is both a human-readable listing and valid assembly that re-assembles to the original image.
+- An `lc3dsm` command-line tool: `lc3dsm program.obj` prints the listing to standard output, with `-o`/`--output` to write it to a file. A malformed object file is reported with a clear message and a non-zero exit status, never a panic.
+- Decode-and-render support in the shared `lc3core` kernel---opcode-to-mnemonic, register-number-to-name, condition-field-to-`BR`-suffix, and trap-vector-to-alias---the inverse of the encoding vocabulary added in `0.3.0`, shared with the disassembler.
+
+### Changed
+
+- Assembled programs are no longer opaque: any `.obj`---including the bundled `2048`, `rogue`, and `hello-world`---can be disassembled back to annotated, re-assemblable source, and `assemble(disassemble(obj))` reproduces the original object byte for byte.
+
 ## [0.3.0] - 2026-06-20
 
 Adds `lc3as`, the LC-3 assembler, making the toolbox self-contained: write assembly, assemble it to an object file, and run it on `lc3vm`---no external assembler required.
@@ -66,8 +80,9 @@ When adding entries to this changelog for future releases:
 1. **Format**: Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 2. **Categories**: Use Added, Changed, Deprecated, Removed, Fixed, Security
 3. **Audience**: Write for users, not developers (focus on impact, not implementation)
-4. **Links**: Add comparison links at the bottom: `[0.4.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.3.0...v0.4.0`
+4. **Links**: Add comparison links at the bottom: `[0.5.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.4.0...v0.5.0`
 
+[0.4.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kobby-pentangeli/lc3box/releases/tag/v0.1.0

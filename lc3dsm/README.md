@@ -16,30 +16,26 @@ Paired with `lc3as`, `lc3dsm` closes the assemble/disassemble round-trip: re-ass
 
 ## Usage
 
-Disassemble an object file; the listing is printed to standard output:
+`lc3dsm` is a library crate; the command-line front end is [`lc3box`](../lc3box), whose `disasm` subcommand disassembles an object file. The listing is printed to standard output:
 
 ```sh
-cargo run -p lc3dsm -- program.obj
+cargo run -p lc3box -- disasm program.obj
 ```
 
 Write it to a file with `-o`/`--output`:
 
 ```sh
-cargo run -p lc3dsm -- program.obj -o program.asm
+cargo run -p lc3box -- disasm program.obj -o program.asm
 ```
 
-A malformed object file is reported with a clear message and a non-zero exit status. To install `lc3dsm` on your `PATH`:
-
-```sh
-cargo install --path .
-```
+A malformed object file is reported with a clear message and a non-zero exit status. To disassemble from Rust, depend on `lc3dsm` and call `disassemble`, which returns the listing as a `String`.
 
 ## Example
 
 Disassembling the bundled [`examples/hello-world.obj`](../examples/hello-world.obj):
 
 ```sh
-cargo run -p lc3dsm -- examples/hello-world.obj
+cargo run -p lc3box -- disasm examples/hello-world.obj
 ```
 
 ```asm
@@ -63,7 +59,7 @@ L_3003  .FILL x0048             ; x3003 x0048
 .END
 ```
 
-The recovered `L_3003` is the address `LEA` loads---the start of the `"Hello World!"` string, which the disassembler renders as its `.FILL` character words. Feeding this listing back to `lc3as` reproduces `hello-world.obj` exactly.
+The recovered `L_3003` is the address `LEA` loads---the start of the `"Hello World!"` string, which the disassembler renders as its `.FILL` character words. Feeding this listing back through `lc3box asm` reproduces `hello-world.obj` exactly.
 
 ## License
 

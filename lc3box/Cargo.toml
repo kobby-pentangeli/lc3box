@@ -17,4 +17,4 @@ lc3vm.workspace = true
 lc3as.workspace = true
 lc3dsm.workspace = true
 
-clap.workspace = true
+clap = { version = "4.6", features = ["derive"] }

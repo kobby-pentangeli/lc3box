@@ -92,3 +92,86 @@ fn disasm_rejects_a_malformed_object_with_a_diagnostic() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("object file"), "diagnostic was: {stderr}");
 }
+
+#[test]
+fn assemble_then_disassemble_re_assembles_to_the_same_object() {
+    // asm -> disasm -> asm reproduces the original object byte for byte.
+    let dir = std::env::temp_dir();
+    let id = std::process::id();
+    let object = dir.join(format!("lc3box-rt-{id}.obj"));
+    let listing = dir.join(format!("lc3box-rt-{id}.asm"));
+    let again = dir.join(format!("lc3box-rt-{id}-again.obj"));
+
+    let assemble = |source: &std::path::Path, out: &std::path::Path| {
+        lc3box()
+            .arg("asm")
+            .arg(source)
+            .args(["-o".as_ref(), out.as_os_str()])
+            .status()
+            .expect("the assembler runs")
+            .success()
+    };
+    assert!(
+        assemble(&example("hello-world.asm"), &object),
+        "assembling the source"
+    );
+    assert!(
+        lc3box()
+            .arg("disasm")
+            .arg(&object)
+            .args(["-o".as_ref(), listing.as_os_str()])
+            .status()
+            .expect("the disassembler runs")
+            .success(),
+        "disassembling the object"
+    );
+    assert!(assemble(&listing, &again), "re-assembling the listing");
+
+    let original = std::fs::read(&object).expect("the first object exists");
+    let round_tripped = std::fs::read(&again).expect("the re-assembled object exists");
+    for path in [&object, &listing, &again] {
+        let _ = std::fs::remove_file(path);
+    }
+    assert_eq!(
+        original, round_tripped,
+        "disassembly must re-assemble to the original object"
+    );
+}
+
+#[test]
+fn run_rejects_an_unrecognized_extension() {
+    let path = std::env::temp_dir().join(format!("lc3box-run-{}.txt", std::process::id()));
+    std::fs::write(&path, "not a program").expect("the file is written");
+    let output = lc3box()
+        .arg("run")
+        .arg(&path)
+        .output()
+        .expect("lc3box runs");
+    let _ = std::fs::remove_file(&path);
+
+    assert!(
+        !output.status.success(),
+        "an unrecognized extension should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("expected a `.asm` or `.obj`"),
+        "diagnostic was: {stderr}"
+    );
+}
+
+#[test]
+fn run_rejects_a_malformed_object() {
+    let path = std::env::temp_dir().join(format!("lc3box-run-bad-{}.obj", std::process::id()));
+    std::fs::write(&path, [0x30, 0x00, 0x12]).expect("the object is written");
+    let output = lc3box()
+        .arg("run")
+        .arg(&path)
+        .output()
+        .expect("lc3box runs");
+    let _ = std::fs::remove_file(&path);
+
+    assert!(!output.status.success(), "a malformed object should fail");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("object file"), "diagnostic was: {stderr}");
+}

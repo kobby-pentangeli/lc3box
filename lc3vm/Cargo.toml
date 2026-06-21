@@ -1,11 +1,15 @@
 [package]
 name = "lc3vm"
+description = "Virtual machine for the LC-3 that executes assembled object files against the full instruction set"
+keywords = ["lc3", "vm", "emulator", "interpreter", "assembly"]
+categories = ["emulators"]
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-readme.workspace = true
+homepage.workspace = true
+readme = "README.md"
 
 [dependencies]
 lc3core.workspace = true

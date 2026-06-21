@@ -12,36 +12,67 @@ Each subcommand delegates to a library core built on the shared [`lc3core`](../l
 | `asm <file>`    | Assemble an assembly source file into a `.obj` object file                                      |
 | `disasm <file>` | Disassemble a `.obj` object file into a re-assemblable listing                                  |
 
-Run `lc3box --help` (or `lc3box <command> --help`) for the full options of each.
+Run `lc3box --help` (or `lc3box <command> --help`) for the full options of each. A malformed input is reported with a clear message and a non-zero exit status, never a panic.
 
 ## Usage
 
-Run a program directly from source, or from a pre-assembled object file:
+### Run
+
+Execute a program directly from source---assembled in memory---or from a pre-assembled object file. The form is chosen by the file extension:
 
 ```sh
 cargo run -p lc3box -- run program.asm
 cargo run -p lc3box -- run program.obj
 ```
 
-Assemble a source file; the object is written next to it with a `.obj` extension, or to the path given with `-o`/`--output`:
+This is the tight edit-run loop: write assembly, `run` it, repeat---no intermediate object file to manage. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit, including on error.
+
+### Assemble
+
+Translate a source file into an object file. With no `-o`/`--output`, the object is written next to the source with a `.obj` extension; a program split across several `.ORIG`/`.END` segments is written as one object file per segment, each suffixed with its origin:
 
 ```sh
 cargo run -p lc3box -- asm program.asm
 cargo run -p lc3box -- asm program.asm -o build/program.obj
 ```
 
-Disassemble an object file; the listing prints to standard output, or to the path given with `-o`/`--output`:
+### Disassemble
+
+Decode an object file into a re-assemblable annotated listing, printed to standard output or written with `-o`/`--output`. Each line carries its address and hex encoding as a trailing `;` comment, labels are recovered from PC-relative references, and any word that is not a canonical instruction is rendered as `.FILL`:
 
 ```sh
 cargo run -p lc3box -- disasm program.obj
 cargo run -p lc3box -- disasm program.obj -o program.asm
 ```
 
-A malformed input is reported with a clear message and a non-zero exit status. To install `lc3box` on your `PATH`:
+Paired with `asm`, `disasm` closes the loop---re-assembling a disassembled object reproduces the original image byte for byte:
+
+```sh
+cargo run -p lc3box -- disasm examples/hello-world.obj -o hello-world.asm
+cargo run -p lc3box -- asm hello-world.asm -o hello-world.obj
+```
+
+## Example
+
+Run the bundled [`examples/hello-world.asm`](../examples/hello-world.asm) straight from source:
+
+```sh
+cargo run -p lc3box -- run examples/hello-world.asm
+```
+
+```text
+Hello World!
+```
+
+## Install
+
+Install `lc3box` on your `PATH`:
 
 ```sh
 cargo install --path .
 ```
+
+Then `lc3box run`, `lc3box asm`, and `lc3box disasm` are available directly.
 
 ## License
 

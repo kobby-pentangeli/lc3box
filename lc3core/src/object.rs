@@ -4,8 +4,7 @@
 //! origin (the load address of the program), and each subsequent word is loaded
 //! into consecutive memory locations starting there.
 
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 /// An assembled LC-3 image.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,25 +16,16 @@ pub struct ObjectFile {
 }
 
 /// The reason a byte stream could not be decoded as a `.obj` image.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum ObjectError {
     /// The stream was shorter than the single word required for the origin.
+    #[error("object file is missing its origin word")]
     MissingOrigin,
     /// The stream had an odd number of bytes; `.obj` words are 16 bits wide.
+    #[error("object file ends mid-word (odd byte length)")]
     TruncatedWord,
 }
-
-impl fmt::Display for ObjectError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MissingOrigin => f.write_str("object file is missing its origin word"),
-            Self::TruncatedWord => f.write_str("object file ends mid-word (odd byte length)"),
-        }
-    }
-}
-
-impl Error for ObjectError {}
 
 impl ObjectFile {
     /// Decodes a big-endian `.obj` byte stream.

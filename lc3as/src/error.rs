@@ -1,12 +1,12 @@
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 /// The reason a source program could not be tokenized.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum LexError {
     /// A `#` or `x` literal, or a bare digit run, that is not a well-formed
     /// number.
+    #[error("line {line}:{column}: malformed numeric literal")]
     MalformedNumber {
         /// The line of the offending literal.
         line: usize,
@@ -14,6 +14,7 @@ pub enum LexError {
         column: usize,
     },
     /// A string literal with no closing quote before the end of its line.
+    #[error("line {line}:{column}: unterminated string literal")]
     UnterminatedString {
         /// The line of the opening quote.
         line: usize,
@@ -21,6 +22,7 @@ pub enum LexError {
         column: usize,
     },
     /// A backslash escape in a string literal that names no known escape.
+    #[error("line {line}:{column}: invalid string escape '\\{escape}'")]
     InvalidEscape {
         /// The line of the offending escape.
         line: usize,
@@ -30,6 +32,7 @@ pub enum LexError {
         escape: char,
     },
     /// A `.` with no directive name following it.
+    #[error("line {line}:{column}: expected a directive name after '.'")]
     MalformedDirective {
         /// The line of the lone dot.
         line: usize,
@@ -37,6 +40,7 @@ pub enum LexError {
         column: usize,
     },
     /// A character that cannot begin any token.
+    #[error("line {line}:{column}: unexpected character '{ch}'")]
     UnexpectedChar {
         /// The line of the stray character.
         line: usize,
@@ -47,75 +51,51 @@ pub enum LexError {
     },
 }
 
-impl fmt::Display for LexError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::MalformedNumber { line, column } => {
-                write!(f, "line {line}:{column}: malformed numeric literal")
-            }
-            Self::UnterminatedString { line, column } => {
-                write!(f, "line {line}:{column}: unterminated string literal")
-            }
-            Self::InvalidEscape {
-                line,
-                column,
-                escape,
-            } => write!(
-                f,
-                "line {line}:{column}: invalid string escape '\\{escape}'"
-            ),
-            Self::MalformedDirective { line, column } => {
-                write!(
-                    f,
-                    "line {line}:{column}: expected a directive name after '.'"
-                )
-            }
-            Self::UnexpectedChar { line, column, ch } => {
-                write!(f, "line {line}:{column}: unexpected character '{ch}'")
-            }
-        }
-    }
-}
-
-impl Error for LexError {}
-
 /// The reason a token stream could not be parsed into a program.
 ///
 /// Every variant but [`MissingOrig`](Self::MissingOrig) carries the 1-based
 /// source line at fault.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum ParseError {
     /// Tokenizing the source failed.
-    Lex(LexError),
+    #[error("{0}")]
+    Lex(#[from] LexError),
     /// A code- or data-emitting statement appears outside any `.ORIG`/`.END`.
+    #[error("line {line}: statement outside any .ORIG/.END segment")]
     StatementOutsideSegment {
         /// The offending line.
         line: usize,
     },
     /// A `.ORIG` opens a segment while another is still open.
+    #[error("line {line}: .ORIG inside an open segment; close it with .END first")]
     NestedSegment {
         /// The offending `.ORIG` line.
         line: usize,
     },
     /// A `.END` appears with no open `.ORIG`.
+    #[error("line {line}: .END without a matching .ORIG")]
     UnmatchedEnd {
         /// The offending `.END` line.
         line: usize,
     },
     /// A `.ORIG` is never closed by a `.END`.
+    #[error("line {line}: .ORIG is never closed by .END")]
     UnterminatedSegment {
         /// The line of the unclosed `.ORIG`.
         line: usize,
     },
     /// The program contains no `.ORIG` segment.
+    #[error("program has no .ORIG segment")]
     MissingOrig,
     /// A label is attached to `.ORIG` or `.END`.
+    #[error("line {line}: a label cannot be attached to .ORIG or .END")]
     LabelOnDirective {
         /// The offending line.
         line: usize,
     },
     /// A label is defined more than once.
+    #[error("line {line}: duplicate label '{label}'")]
     DuplicateLabel {
         /// The line of the redefinition.
         line: usize,
@@ -123,16 +103,19 @@ pub enum ParseError {
         label: String,
     },
     /// A segment's contents would extend past `xFFFF`.
+    #[error("line {line}: program runs past the end of memory (xFFFF)")]
     ProgramOverflow {
         /// The line of the statement that overruns memory.
         line: usize,
     },
     /// A `.ORIG` origin or `.BLKW` count does not fit a 16-bit word.
+    #[error("line {line}: value does not fit a 16-bit word")]
     ValueOutOfRange {
         /// The offending line.
         line: usize,
     },
     /// A word in operation position names no known instruction.
+    #[error("line {line}: unknown instruction '{mnemonic}'")]
     UnknownMnemonic {
         /// The offending line.
         line: usize,
@@ -140,6 +123,7 @@ pub enum ParseError {
         mnemonic: String,
     },
     /// A `.`-directive names no known pseudo-op.
+    #[error("line {line}: unknown directive '{directive}'")]
     UnknownDirective {
         /// The offending line.
         line: usize,
@@ -147,6 +131,7 @@ pub enum ParseError {
         directive: String,
     },
     /// An operand of the named kind was expected but not found.
+    #[error("line {line}: expected {expected}")]
     ExpectedOperand {
         /// The offending line.
         line: usize,
@@ -154,77 +139,11 @@ pub enum ParseError {
         expected: &'static str,
     },
     /// A statement carries more tokens than its form allows.
+    #[error("line {line}: unexpected token")]
     UnexpectedToken {
         /// The offending line.
         line: usize,
     },
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Lex(error) => write!(f, "{error}"),
-            Self::StatementOutsideSegment { line } => {
-                write!(f, "line {line}: statement outside any .ORIG/.END segment")
-            }
-            Self::NestedSegment { line } => {
-                write!(
-                    f,
-                    "line {line}: .ORIG inside an open segment; close it with .END first"
-                )
-            }
-            Self::UnmatchedEnd { line } => {
-                write!(f, "line {line}: .END without a matching .ORIG")
-            }
-            Self::UnterminatedSegment { line } => {
-                write!(f, "line {line}: .ORIG is never closed by .END")
-            }
-            Self::MissingOrig => write!(f, "program has no .ORIG segment"),
-            Self::LabelOnDirective { line } => {
-                write!(
-                    f,
-                    "line {line}: a label cannot be attached to .ORIG or .END"
-                )
-            }
-            Self::DuplicateLabel { line, label } => {
-                write!(f, "line {line}: duplicate label '{label}'")
-            }
-            Self::ProgramOverflow { line } => {
-                write!(
-                    f,
-                    "line {line}: program runs past the end of memory (xFFFF)"
-                )
-            }
-            Self::ValueOutOfRange { line } => {
-                write!(f, "line {line}: value does not fit a 16-bit word")
-            }
-            Self::UnknownMnemonic { line, mnemonic } => {
-                write!(f, "line {line}: unknown instruction '{mnemonic}'")
-            }
-            Self::UnknownDirective { line, directive } => {
-                write!(f, "line {line}: unknown directive '{directive}'")
-            }
-            Self::ExpectedOperand { line, expected } => {
-                write!(f, "line {line}: expected {expected}")
-            }
-            Self::UnexpectedToken { line } => write!(f, "line {line}: unexpected token"),
-        }
-    }
-}
-
-impl Error for ParseError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Lex(error) => Some(error),
-            _ => None,
-        }
-    }
-}
-
-impl From<LexError> for ParseError {
-    fn from(error: LexError) -> Self {
-        Self::Lex(error)
-    }
 }
 
 /// The reason a parsed program could not be encoded into object words.
@@ -232,12 +151,14 @@ impl From<LexError> for ParseError {
 /// [`Parse`](Self::Parse) wraps a first-pass failure; the remaining variants are
 /// second-pass faults---an unresolved label, or a value too large for the
 /// instruction field that holds it---each carrying the 1-based source line.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum AsmError {
     /// The first pass---lexing and parsing---failed.
-    Parse(ParseError),
+    #[error("{0}")]
+    Parse(#[from] ParseError),
     /// A label reference names no symbol defined anywhere in the program.
+    #[error("line {line}: undefined label '{label}'")]
     UndefinedLabel {
         /// The line of the reference.
         line: usize,
@@ -245,6 +166,7 @@ pub enum AsmError {
         label: String,
     },
     /// A PC-relative or base offset does not fit its instruction field.
+    #[error("line {line}: offset {offset} does not fit a {bits}-bit field")]
     OffsetOutOfRange {
         /// The line of the instruction.
         line: usize,
@@ -254,6 +176,7 @@ pub enum AsmError {
         bits: u32,
     },
     /// An `ADD`/`AND` immediate does not fit the five-bit `imm5` field.
+    #[error("line {line}: immediate {value} does not fit the 5-bit field")]
     ImmediateOutOfRange {
         /// The line of the instruction.
         line: usize,
@@ -262,6 +185,7 @@ pub enum AsmError {
     },
     /// A `.FILL` word, a trap vector, or a string character does not fit its
     /// field.
+    #[error("line {line}: value {value} does not fit a {bits}-bit field")]
     ValueOutOfRange {
         /// The line of the offending value.
         line: usize,
@@ -270,48 +194,4 @@ pub enum AsmError {
         /// The width of the field, in bits.
         bits: u32,
     },
-}
-
-impl fmt::Display for AsmError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Parse(error) => write!(f, "{error}"),
-            Self::UndefinedLabel { line, label } => {
-                write!(f, "line {line}: undefined label '{label}'")
-            }
-            Self::OffsetOutOfRange { line, offset, bits } => {
-                write!(
-                    f,
-                    "line {line}: offset {offset} does not fit a {bits}-bit field"
-                )
-            }
-            Self::ImmediateOutOfRange { line, value } => {
-                write!(
-                    f,
-                    "line {line}: immediate {value} does not fit the 5-bit field"
-                )
-            }
-            Self::ValueOutOfRange { line, value, bits } => {
-                write!(
-                    f,
-                    "line {line}: value {value} does not fit a {bits}-bit field"
-                )
-            }
-        }
-    }
-}
-
-impl Error for AsmError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Parse(error) => Some(error),
-            _ => None,
-        }
-    }
-}
-
-impl From<ParseError> for AsmError {
-    fn from(error: ParseError) -> Self {
-        Self::Parse(error)
-    }
 }

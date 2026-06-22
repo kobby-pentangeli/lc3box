@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-06-22
+
+Adds `lc3dbg`, an interactive debugger for the toolbox: load a program and drive it one instruction at a time---single-step, set breakpoints, inspect and edit registers and memory, and disassemble the code around the program counter---so what a program does between assembly and output is no longer a black box.
+
+### Added
+
+- **`lc3dbg`**, a new interactive debugger that drives the `lc3vm` virtual machine one instruction at a time. It single-steps (`step [n]`), runs to a breakpoint or `HALT` (`continue`), sets and clears breakpoints (`break`/`delete`) and lists them (`breaks`), shows and edits the register file (`registers`/`set`) and memory (`write`), disassembles a window around the program counter (`disassemble`), and reloads the program to its entry point (`reset`). The engine is a pure state machine with no terminal of its own, so it embeds cleanly in other programs.
+- An `lc3box dbg` subcommand that opens a debugging session on a program: `lc3box dbg program.asm` assembles it in memory first, `lc3box dbg program.obj` loads the object directly, then reads commands from a prompt. An executing program drives the terminal in raw mode for the span of the run, while the prompt stays line-edited.
+- **`lc3box::dbg`** in the umbrella library, re-exporting `lc3dbg` alongside the existing `kernel`/`vm`/`asm`/`dsm` modules, each behind a like-named feature---`full` now enables all five.
+- The library primitives the debugger is built on: a public single-step entry point on the virtual machine (`lc3vm`) and single-instruction rendering in the disassembler (`lc3dsm`).
+
 ## [0.6.0] - 2026-06-21
 
 Makes the toolbox publish-ready: `lc3box` becomes an umbrella library as well as a command-line driver, so the whole toolbox---or any single tool---is reachable through one dependency, and the libraries' public APIs are stabilized for `crates.io`.
@@ -113,6 +124,7 @@ When adding entries to this changelog for future releases:
 3. **Audience**: Write for users, not developers (focus on impact, not implementation)
 4. **Links**: Add comparison links at the bottom: `[0.7.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.6.0...v0.7.0`
 
+[0.7.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.3.0...v0.4.0

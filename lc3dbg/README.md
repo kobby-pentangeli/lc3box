@@ -50,8 +50,9 @@ if let Command::Continue = parse("continue")? {
         _ => {}
     }
 }
-# Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+For a ready-made command loop instead of hand-dispatching, `repl` reads commands from any `BufRead`, drives the engine, and writes results to any `Write`---the same frontend `lc3box dbg` runs over the terminal.
 
 ## License
 

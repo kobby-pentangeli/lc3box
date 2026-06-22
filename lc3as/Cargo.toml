@@ -13,3 +13,4 @@ readme = "README.md"
 
 [dependencies]
 lc3core.workspace = true
+thiserror.workspace = true

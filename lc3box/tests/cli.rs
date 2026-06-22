@@ -1,8 +1,9 @@
 //! End-to-end tests for the `lc3box` command-line binary.
 #![cfg(feature = "cli")]
 
-use std::path::PathBuf;
-use std::process::Command;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output, Stdio};
 
 fn lc3box() -> Command {
     Command::new(env!("CARGO_BIN_EXE_lc3box"))
@@ -12,6 +13,26 @@ fn example(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../examples")
         .join(name)
+}
+
+/// Runs `lc3box dbg <program>`, feeding `commands` on standard input and
+/// returning the finished process output. A program that fails to load exits
+/// before reading input, so the write is best-effort.
+fn dbg_session(program: &Path, commands: &str) -> Output {
+    let mut child = lc3box()
+        .arg("dbg")
+        .arg(program)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("lc3box dbg spawns");
+    let _ = child
+        .stdin
+        .take()
+        .expect("the child has a stdin pipe")
+        .write_all(commands.as_bytes());
+    child.wait_with_output().expect("lc3box dbg runs")
 }
 
 #[test]
@@ -175,4 +196,59 @@ fn run_rejects_a_malformed_object() {
     assert!(!output.status.success(), "a malformed object should fail");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("object file"), "diagnostic was: {stderr}");
+}
+
+#[test]
+fn dbg_continues_hello_world_to_its_greeting_and_halt() {
+    // `continue` runs the program to completion under the debugger: its trap
+    // output reaches the terminal and the engine reports the halt.
+    let output = dbg_session(&example("hello-world.obj"), "continue\nquit\n");
+    assert!(output.status.success(), "the session should exit cleanly");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Hello World!"), "program output: {stdout}");
+    assert!(stdout.contains("halted"), "halt report: {stdout}");
+}
+
+#[test]
+fn dbg_disassembles_a_window_of_the_loaded_program() {
+    let output = dbg_session(&example("hello-world.obj"), "disassemble x3000 4\nquit\n");
+    assert!(output.status.success(), "the session should exit cleanly");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("LEA R0"), "listing: {stdout}");
+    assert!(stdout.contains("HALT"), "listing: {stdout}");
+}
+
+#[test]
+fn dbg_steps_and_inspects_registers() {
+    // hello-world's entry is `LEA R0, <string>`, so one step loads R0 with the
+    // string's address; the register dump must then show a non-zero R0.
+    let output = dbg_session(&example("hello-world.obj"), "step\nregisters\nquit\n");
+    assert!(output.status.success(), "the session should exit cleanly");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("PC x3001"), "after one step: {stdout}");
+    assert!(
+        stdout.contains("R0 x3003"),
+        "LEA must load the string address: {stdout}"
+    );
+}
+
+#[test]
+fn dbg_rejects_an_unrecognized_extension() {
+    let path = std::env::temp_dir().join(format!("lc3box-dbg-{}.txt", std::process::id()));
+    std::fs::write(&path, "not a program").expect("the file is written");
+    let output = dbg_session(&path, "quit\n");
+    let _ = std::fs::remove_file(&path);
+
+    assert!(
+        !output.status.success(),
+        "an unrecognized extension should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("expected a `.asm` or `.obj`"),
+        "diagnostic was: {stderr}"
+    );
 }

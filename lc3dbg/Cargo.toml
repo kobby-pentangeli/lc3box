@@ -1,0 +1,19 @@
+[package]
+name = "lc3dbg"
+description = "Interactive debugger for the LC-3: single-step, breakpoints, and register and memory inspection over the lc3vm virtual machine"
+keywords = ["lc3", "debugger", "emulator", "vm", "isa"]
+categories = ["development-tools", "emulators"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+
+[dependencies]
+lc3core.workspace = true
+lc3vm.workspace = true
+lc3dsm.workspace = true
+
+thiserror.workspace = true

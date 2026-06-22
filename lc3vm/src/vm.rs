@@ -110,12 +110,26 @@ impl Lc3VM {
     /// [`Error`] the moment the machine reaches an instruction it cannot run.
     pub fn run(&mut self) -> Result<(), Error> {
         loop {
-            let instruction = self.read_memory(self.registers.pc)?;
-            self.registers.pc = self.registers.pc.wrapping_add(1);
-            if let Flow::Halt = self.step(instruction)? {
+            if let Step::Halted = self.step()? {
                 return Ok(());
             }
         }
+    }
+
+    /// Fetches, decodes, and executes the one instruction at the program
+    /// counter, reporting whether the machine should keep running.
+    ///
+    /// This is a single iteration of [`run`](Self::run): it reads the word at
+    /// the program counter (polling the keyboard first when that word is the
+    /// keyboard status register, so a program sees fresh input), advances the
+    /// counter (wrapping at the top of the address space), and executes the
+    /// instruction. A `HALT` trap yields [`Step::Halted`]; every other
+    /// instruction yields [`Step::Continued`]. Returns an [`Error`] the moment
+    /// the machine reaches an instruction it cannot run.
+    pub fn step(&mut self) -> Result<Step, Error> {
+        let instruction = self.read_memory(self.registers.pc)?;
+        self.registers.pc = self.registers.pc.wrapping_add(1);
+        self.execute(instruction)
     }
 
     /// Reads the word at `address`, polling the keyboard first when `address`
@@ -142,13 +156,14 @@ impl Lc3VM {
         Ok(())
     }
 
-    /// Decodes and executes one instruction, reporting how execution proceeds.
+    /// Decodes and executes one instruction word, reporting how execution
+    /// proceeds.
     ///
-    /// Ordinary instructions yield [`Flow::Continue`]; a `HALT` trap yields
-    /// [`Flow::Halt`]. The privileged (`RTI`), reserved, and unknown-trap
+    /// Ordinary instructions yield [`Step::Continued`]; a `HALT` trap yields
+    /// [`Step::Halted`]. The privileged (`RTI`), reserved, and unknown-trap
     /// encodings have no defined effect in this user-mode VM, so rather than
     /// silently advancing past them they stop the machine with an [`Error`].
-    fn step(&mut self, instruction: u16) -> Result<Flow, Error> {
+    fn execute(&mut self, instruction: u16) -> Result<Step, Error> {
         match Opcode::decode(instruction) {
             Opcode::Br => self.br(instruction),
             Opcode::Add => self.add(instruction),
@@ -167,7 +182,7 @@ impl Lc3VM {
             Opcode::Rti => return Err(Error::PrivilegedInstruction(instruction)),
             Opcode::Res => return Err(Error::ReservedOpcode(instruction)),
         }
-        Ok(Flow::Continue)
+        Ok(Step::Continued)
     }
 
     /// Branch to a PC-relative address if conditions are met.
@@ -554,7 +569,7 @@ impl Lc3VM {
     /// - 0x23 (IN): Prompt and read character
     /// - 0x24 (PUTSP): Write packed byte string
     /// - 0x25 (HALT): Terminate execution
-    fn trap(&mut self, instruction: u16) -> Result<Flow, Error> {
+    fn trap(&mut self, instruction: u16) -> Result<Step, Error> {
         let code = TrapVector::try_from(instruction & 0xFF).map_err(Error::UnknownTrap)?;
 
         match code {
@@ -613,20 +628,22 @@ impl Lc3VM {
                 self.console.flush()?;
             }
 
-            TrapVector::Halt => return Ok(Flow::Halt),
+            TrapVector::Halt => return Ok(Step::Halted),
         }
 
-        Ok(Flow::Continue)
+        Ok(Step::Continued)
     }
 }
 
-/// How execution should proceed after a single instruction.
-#[derive(Debug, Clone, Copy)]
-enum Flow {
-    /// Continue with the next instruction.
-    Continue,
-    /// Stop: the program reached a `HALT`.
-    Halt,
+/// The outcome of a single [`step`](Lc3VM::step): whether the machine should
+/// keep running or has stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Step {
+    /// The instruction ran; execution continues with the next one.
+    Continued,
+    /// The program reached a `HALT` trap; the machine has stopped.
+    Halted,
 }
 
 #[cfg(test)]
@@ -638,7 +655,7 @@ mod tests {
 
     use lc3core::{ConditionFlag, ObjectFile, PC_START};
 
-    use super::Flow;
+    use super::Step;
     use crate::console::Console;
     use crate::{Error, Lc3VM};
 
@@ -714,14 +731,9 @@ mod tests {
             .expect("example fits in memory");
 
         for _ in 0..limit {
-            let pc = vm.registers.pc;
-            let Ok(instruction) = vm.read_memory(pc) else {
-                break;
-            };
-            vm.registers.pc = pc.wrapping_add(1);
-            match vm.step(instruction) {
-                Ok(Flow::Continue) => {}
-                Ok(Flow::Halt) => break,
+            match vm.step() {
+                Ok(Step::Continued) => {}
+                Ok(Step::Halted) => break,
                 Err(Error::Io(error)) if error.kind() == io::ErrorKind::UnexpectedEof => break,
                 Err(error) => panic!("{name} raised an execution error: {error}"),
             }
@@ -745,7 +757,7 @@ mod tests {
         vm.registers.set(1, 7);
         vm.registers.set(2, 35);
         // ADD R0, R1, R2
-        vm.step(0x1042).expect("add");
+        vm.execute(0x1042).expect("add");
         assert_eq!(vm.registers.get(0), 42);
         assert_eq!(vm.registers.cond, ConditionFlag::Positive);
     }
@@ -755,7 +767,7 @@ mod tests {
         let mut vm = Lc3VM::new();
         vm.registers.set(1, 0xFFFF);
         // AND R0, R1, #15
-        vm.step(0x506F).expect("and");
+        vm.execute(0x506F).expect("and");
         assert_eq!(vm.registers.get(0), 0x000F);
         assert_eq!(vm.registers.cond, ConditionFlag::Positive);
     }
@@ -765,7 +777,7 @@ mod tests {
         let mut vm = Lc3VM::new();
         vm.registers.set(1, 0x00FF);
         // NOT R0, R1
-        vm.step(0x907F).expect("not");
+        vm.execute(0x907F).expect("not");
         assert_eq!(vm.registers.get(0), 0xFF00);
         assert_eq!(vm.registers.cond, ConditionFlag::Negative);
     }
@@ -777,12 +789,12 @@ mod tests {
 
         // BRz #5 with the zero flag set: taken.
         vm.registers.pc = 0x3000;
-        vm.step(0x0405).expect("br");
+        vm.execute(0x0405).expect("br");
         assert_eq!(vm.registers.pc, 0x3005);
 
         // BRn #5 with the zero flag set: not taken.
         vm.registers.pc = 0x3000;
-        vm.step(0x0805).expect("br");
+        vm.execute(0x0805).expect("br");
         assert_eq!(vm.registers.pc, 0x3000);
     }
 
@@ -792,7 +804,7 @@ mod tests {
         vm.registers.cond = ConditionFlag::Positive;
         vm.registers.pc = 0x3005;
         // BRp #-5
-        vm.step(0x03FB).expect("br");
+        vm.execute(0x03FB).expect("br");
         assert_eq!(vm.registers.pc, 0x3000);
     }
 
@@ -801,7 +813,7 @@ mod tests {
         let mut vm = Lc3VM::new();
         vm.registers.set(2, 0x8000);
         // JMP R2
-        vm.step(0xC080).expect("jmp");
+        vm.execute(0xC080).expect("jmp");
         assert_eq!(vm.registers.pc, 0x8000);
     }
 
@@ -810,7 +822,7 @@ mod tests {
         let mut vm = Lc3VM::new();
         vm.registers.pc = 0x3000;
         // JSR #100
-        vm.step(0x4864).expect("jsr");
+        vm.execute(0x4864).expect("jsr");
         assert_eq!(vm.registers.pc, 0x3064);
         assert_eq!(vm.registers.get(7), 0x3000);
     }
@@ -821,7 +833,7 @@ mod tests {
         vm.registers.pc = 0x3000;
         vm.registers.set(7, 0x4000);
         // JSRR R7 jumps to the old R7, not the freshly saved return address.
-        vm.step(0x41C0).expect("jsrr");
+        vm.execute(0x41C0).expect("jsrr");
         assert_eq!(vm.registers.pc, 0x4000);
         assert_eq!(vm.registers.get(7), 0x3000);
     }
@@ -831,7 +843,7 @@ mod tests {
         let mut vm = Lc3VM::new();
         vm.registers.pc = 0x3000;
         // LEA R7, #10
-        vm.step(0xEE0A).expect("lea");
+        vm.execute(0xEE0A).expect("lea");
         assert_eq!(vm.registers.get(7), 0x300A);
     }
 
@@ -841,7 +853,7 @@ mod tests {
         vm.registers.pc = 0x3000;
         vm.memory.write(0x3005, 0xBEEF);
         // LD R3, #5
-        vm.step(0x2605).expect("ld");
+        vm.execute(0x2605).expect("ld");
         assert_eq!(vm.registers.get(3), 0xBEEF);
         assert_eq!(vm.registers.cond, ConditionFlag::Negative);
     }
@@ -852,7 +864,7 @@ mod tests {
         vm.registers.pc = 0x3000;
         vm.registers.set(4, 0x1234);
         // ST R4, #2
-        vm.step(0x3802).expect("st");
+        vm.execute(0x3802).expect("st");
         assert_eq!(vm.memory.read(0x3002), 0x1234);
     }
 
@@ -862,7 +874,7 @@ mod tests {
         vm.registers.set(1, 0x4000);
         vm.memory.write(0x4003, 0xCAFE);
         // LDR R2, R1, #3
-        vm.step(0x6443).expect("ldr");
+        vm.execute(0x6443).expect("ldr");
         assert_eq!(vm.registers.get(2), 0xCAFE);
     }
 
@@ -872,7 +884,7 @@ mod tests {
         vm.registers.set(1, 0x4000);
         vm.registers.set(2, 0xABCD);
         // STR R2, R1, #1
-        vm.step(0x7441).expect("str");
+        vm.execute(0x7441).expect("str");
         assert_eq!(vm.memory.read(0x4001), 0xABCD);
     }
 
@@ -883,7 +895,7 @@ mod tests {
         vm.memory.write(0x3001, 0x4000);
         vm.memory.write(0x4000, 0x7777);
         // LDI R5, #1
-        vm.step(0xAA01).expect("ldi");
+        vm.execute(0xAA01).expect("ldi");
         assert_eq!(vm.registers.get(5), 0x7777);
     }
 
@@ -894,7 +906,7 @@ mod tests {
         vm.registers.set(6, 0x9999);
         vm.memory.write(0x3002, 0x5000);
         // STI R6, #2
-        vm.step(0xBC02).expect("sti");
+        vm.execute(0xBC02).expect("sti");
         assert_eq!(vm.memory.read(0x5000), 0x9999);
     }
 
@@ -904,7 +916,7 @@ mod tests {
         vm.memory.write(0xFFFF, 0x55AA);
         vm.registers.set(1, 0xFFFF);
         // LDR R0, R1, #0 reads 0xFFFF without a bounds panic.
-        vm.step(0x6040).expect("ldr");
+        vm.execute(0x6040).expect("ldr");
         assert_eq!(vm.registers.get(0), 0x55AA);
     }
 
@@ -921,7 +933,7 @@ mod tests {
     #[test]
     fn getc_reads_one_key_into_r0() {
         let (mut vm, _output) = vm_with_console(b"Q");
-        vm.step(0xF020).expect("getc"); // TRAP GETC
+        vm.execute(0xF020).expect("getc"); // TRAP GETC
         assert_eq!(vm.registers.get(0), u16::from(b'Q'));
     }
 
@@ -929,7 +941,7 @@ mod tests {
     fn out_writes_the_low_byte_of_r0() {
         let (mut vm, output) = vm_with_console(b"");
         vm.registers.set(0, u16::from(b'Z'));
-        vm.step(0xF021).expect("out"); // TRAP OUT
+        vm.execute(0xF021).expect("out"); // TRAP OUT
         assert_eq!(output.borrow().as_slice(), b"Z");
     }
 
@@ -940,14 +952,14 @@ mod tests {
         vm.memory.write(0x4001, u16::from(b'i'));
         vm.memory.write(0x4002, 0x0000);
         vm.registers.set(0, 0x4000);
-        vm.step(0xF022).expect("puts"); // TRAP PUTS
+        vm.execute(0xF022).expect("puts"); // TRAP PUTS
         assert_eq!(output.borrow().as_slice(), b"Hi");
     }
 
     #[test]
     fn in_prompts_echoes_and_stores_the_key() {
         let (mut vm, output) = vm_with_console(b"k");
-        vm.step(0xF023).expect("in"); // TRAP IN
+        vm.execute(0xF023).expect("in"); // TRAP IN
         assert_eq!(vm.registers.get(0), u16::from(b'k'));
         assert_eq!(output.borrow().as_slice(), b"Enter a character: k");
     }
@@ -962,7 +974,7 @@ mod tests {
             .write(0x4001, u16::from(b'C') | (u16::from(b'D') << 8));
         vm.memory.write(0x4002, 0x0000);
         vm.registers.set(0, 0x4000);
-        vm.step(0xF024).expect("putsp"); // TRAP PUTSP
+        vm.execute(0xF024).expect("putsp"); // TRAP PUTSP
         assert_eq!(output.borrow().as_slice(), b"ABCD");
     }
 
@@ -976,14 +988,14 @@ mod tests {
     fn ordinary_instruction_continues() {
         let mut vm = Lc3VM::new();
         // ADD R0, R0, #0 — a no-op that must let execution continue.
-        assert!(matches!(vm.step(0x1020), Ok(Flow::Continue)));
+        assert!(matches!(vm.execute(0x1020), Ok(Step::Continued)));
     }
 
     #[test]
     fn rti_outside_supervisor_mode_is_rejected() {
         let mut vm = Lc3VM::new();
         assert!(matches!(
-            vm.step(0x8000),
+            vm.execute(0x8000),
             Err(Error::PrivilegedInstruction(0x8000))
         ));
     }
@@ -992,7 +1004,7 @@ mod tests {
     fn reserved_opcode_is_rejected() {
         let mut vm = Lc3VM::new();
         assert!(matches!(
-            vm.step(0xD000),
+            vm.execute(0xD000),
             Err(Error::ReservedOpcode(0xD000))
         ));
     }
@@ -1001,7 +1013,7 @@ mod tests {
     fn unknown_trap_vector_is_rejected() {
         let mut vm = Lc3VM::new();
         // TRAP xFF is not one of the six standard vectors.
-        assert!(matches!(vm.step(0xF0FF), Err(Error::UnknownTrap(0xFF))));
+        assert!(matches!(vm.execute(0xF0FF), Err(Error::UnknownTrap(0xFF))));
     }
 
     #[test]

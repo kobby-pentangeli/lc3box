@@ -15,4 +15,4 @@ pub use console::RawMode;
 pub use error::Error;
 pub use memory::Memory;
 pub use registers::Registers;
-pub use vm::Lc3VM;
+pub use vm::{Lc3VM, Step};

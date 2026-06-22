@@ -2,7 +2,7 @@
 
 The unified command-line driver for the [LC3 Box](../README.md) toolbox: a single frontend over the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) tool libraries, with one subcommand per tool.
 
-Each subcommand delegates to a library core built on the shared [`lc3core`](../lc3core) kernel: `run` executes through [`lc3vm`](../lc3vm), `asm` assembles through [`lc3as`](../lc3as), and `disasm` disassembles through [`lc3dsm`](../lc3dsm). The tools agree on every bit of the instruction set because they share that one kernel.
+Each subcommand delegates to a library core built on the shared [`lc3core`](../lc3core) kernel: `run` executes through [`lc3vm`](../lc3vm), `asm` assembles through [`lc3as`](../lc3as), `disasm` disassembles through [`lc3dsm`](../lc3dsm), and `dbg` debugs through [`lc3dbg`](../lc3dbg). The tools agree on every bit of the instruction set because they share that one kernel.
 
 ## Subcommands
 
@@ -11,6 +11,7 @@ Each subcommand delegates to a library core built on the shared [`lc3core`](../l
 | `run <file>`    | Execute a program: an `.asm` source is assembled in memory, an `.obj` object is loaded directly |
 | `asm <file>`    | Assemble an assembly source file into a `.obj` object file                                      |
 | `disasm <file>` | Disassemble a `.obj` object file into a re-assemblable listing                                  |
+| `dbg <file>`    | Debug a program interactively: single-step, breakpoints, register and memory inspection         |
 
 Run `lc3box --help` (or `lc3box <command> --help`) for the full options of each. A malformed input is reported with a clear message and a non-zero exit status, never a panic.
 
@@ -52,6 +53,17 @@ cargo run -p lc3box -- disasm examples/hello-world.obj -o hello-world.asm
 cargo run -p lc3box -- asm hello-world.asm -o hello-world.obj
 ```
 
+### Debug
+
+Open an interactive debugging session on a program---from source or a pre-assembled object, chosen by the file extension---then drive it from a prompt:
+
+```sh
+cargo run -p lc3box -- dbg program.asm
+cargo run -p lc3box -- dbg examples/2048.obj
+```
+
+Single-step with `step [n]`, run to a breakpoint or `HALT` with `continue`, set and clear breakpoints with `break`/`delete`, inspect and edit the machine with `registers`/`set`/`write`, and disassemble around the program counter with `disassemble`. `help` lists every command and `quit` leaves the session. An executing program drives the terminal directly---raw mode for the span of the run---while the prompt stays line-edited.
+
 ## Example
 
 Run the bundled [`examples/hello-world.asm`](../examples/hello-world.asm) straight from source:
@@ -66,7 +78,7 @@ Hello World!
 
 ## Library
 
-`lc3box` is also an umbrella library that re-exports the tool crates under short module names, so one dependency reaches the whole toolbox: `lc3box::kernel` ([`lc3core`](../lc3core)), `lc3box::vm` ([`lc3vm`](../lc3vm)), `lc3box::asm` ([`lc3as`](../lc3as)), and `lc3box::dsm` ([`lc3dsm`](../lc3dsm)).
+`lc3box` is also an umbrella library that re-exports the tool crates under short module names, so one dependency reaches the whole toolbox: `lc3box::kernel` ([`lc3core`](../lc3core)), `lc3box::vm` ([`lc3vm`](../lc3vm)), `lc3box::asm` ([`lc3as`](../lc3as)), `lc3box::dsm` ([`lc3dsm`](../lc3dsm)), and `lc3box::dbg` ([`lc3dbg`](../lc3dbg)).
 
 ```rust
 use lc3box::{asm, dsm, vm};
@@ -77,10 +89,10 @@ let mut machine = vm::Lc3VM::new();
 machine.load_program(&image.blocks)?;
 ```
 
-Each module sits behind a like-named feature; `full` enables all four, and the default `cli` feature additionally builds the binary. Depend on `lc3box` with `default-features = false` and a single feature to pull in one tool alone, or on the individual tool crates directly for the most granular build:
+Each module sits behind a like-named feature; `full` enables all five, and the default `cli` feature additionally builds the binary. Depend on `lc3box` with `default-features = false` and a single feature to pull in one tool alone, or on the individual tool crates directly for the most granular build:
 
 ```toml
-lc3box = { version = "0.6", default-features = false, features = ["asm"] }
+lc3box = { version = "0.7", default-features = false, features = ["asm"] }
 ```
 
 ## Install
@@ -93,7 +105,7 @@ cargo install --git https://github.com/kobby-pentangeli/lc3box
 cargo install --path .
 ```
 
-Then `lc3box run`, `lc3box asm`, and `lc3box disasm` are available directly.
+Then `lc3box run`, `lc3box asm`, `lc3box disasm`, and `lc3box dbg` are available directly.
 
 ## License
 

@@ -3,8 +3,9 @@
 //! `lc3box` is the single frontend over the LC-3 tool libraries, with one
 //! subcommand per tool delegating to its library core: `run` executes a
 //! program on the [`lc3vm`] virtual machine, `asm` assembles a source file
-//! through [`lc3as`], and `disasm` renders an object file's disassembly
-//! through [`lc3dsm`], all built on the shared [`lc3core`] kernel.
+//! through [`lc3as`], `disasm` renders an object file's disassembly through
+//! [`lc3dsm`], and `dbg` opens an interactive debugging session through
+//! [`lc3dbg`], all built on the shared [`lc3core`] kernel.
 
 use std::error::Error;
 use std::io;
@@ -14,6 +15,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use lc3as::{Image, assemble};
 use lc3core::ObjectFile;
+use lc3dbg::{Debugger, repl};
 use lc3dsm::disassemble;
 use lc3vm::{Lc3VM, RawMode};
 
@@ -49,21 +51,28 @@ enum Command {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// Debug an LC-3 program interactively: single-step, set breakpoints, and
+    /// inspect registers and memory. Accepts an `.asm` source or `.obj` object
+    Dbg {
+        /// Path to the LC-3 program, an `.asm` source or an `.obj` object file
+        path: PathBuf,
+    },
 }
 
-/// Loads the program at `path`---assembling it in memory if it is `.asm`
-/// source, decoding it if it is a `.obj` object---and runs it on the virtual
-/// machine.
+/// Loads the program at `path` into its object segments, assembling it in memory
+/// if it is `.asm` source and decoding it if it is a `.obj` object.
+fn load_program(path: &Path) -> Result<Vec<ObjectFile>, Box<dyn Error>> {
+    match path.extension().and_then(|extension| extension.to_str()) {
+        Some("asm") => Ok(assemble(&std::fs::read_to_string(path)?)?.blocks),
+        Some("obj") => Ok(vec![ObjectFile::from_be_bytes(&std::fs::read(path)?)?]),
+        _ => Err(format!("{}: expected a `.asm` or `.obj` file", path.display()).into()),
+    }
+}
+
+/// Loads the program at `path` and runs it to completion on the virtual machine.
 fn run(path: &Path) -> Result<(), Box<dyn Error>> {
     let mut vm = Lc3VM::new();
-    match path.extension().and_then(|extension| extension.to_str()) {
-        Some("asm") => vm.load_program(&assemble(&std::fs::read_to_string(path)?)?.blocks)?,
-        Some("obj") => {
-            let object = ObjectFile::from_be_bytes(&std::fs::read(path)?)?;
-            vm.load_program(std::slice::from_ref(&object))?;
-        }
-        _ => return Err(format!("{}: expected a `.asm` or `.obj` file", path.display()).into()),
-    }
+    vm.load_program(&load_program(path)?)?;
 
     // Raw mode lasts only for the program's run; the guard restores the
     // terminal when this scope ends, including on an early error return.
@@ -93,6 +102,14 @@ fn disasm(path: &Path, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         Some(path) => std::fs::write(path, listing)?,
         None => print!("{listing}"),
     }
+    Ok(())
+}
+
+/// Loads the program at `path` and opens an interactive debugging session on it,
+/// reading commands from standard input and writing results to standard output.
+fn dbg(path: &Path) -> Result<(), Box<dyn Error>> {
+    let mut debugger = Debugger::new(load_program(path)?)?;
+    repl(&mut debugger, io::stdin().lock(), io::stdout().lock())?;
     Ok(())
 }
 
@@ -131,6 +148,7 @@ fn execute() -> Result<(), Box<dyn Error>> {
         Command::Run { path } => run(&path),
         Command::Asm { path, output } => asm(&path, output),
         Command::Disasm { path, output } => disasm(&path, output),
+        Command::Dbg { path } => dbg(&path),
     }
 }
 

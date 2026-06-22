@@ -1,6 +1,6 @@
 [package]
 name = "lc3box"
-description = "Unified command-line driver and umbrella library for the LC-3 toolbox: run, assemble, and disassemble Little Computer 3 programs"
+description = "Unified CLI and library for the LC-3 toolbox: run, assemble, and disassemble Little Computer 3 programs"
 keywords = ["lc3", "assembly", "emulator", "assembler", "toolbox"]
 categories = ["emulators", "command-line-utilities", "development-tools"]
 version.workspace = true
@@ -22,7 +22,8 @@ kernel = ["dep:lc3core"]
 vm = ["dep:lc3vm", "kernel"]
 asm = ["dep:lc3as", "kernel"]
 dsm = ["dep:lc3dsm", "kernel"]
-full = ["vm", "asm", "dsm"]
+dbg = ["dep:lc3dbg", "vm", "dsm"]
+full = ["vm", "asm", "dsm", "dbg"]
 cli = ["full", "dep:clap"]
 
 [dependencies]
@@ -30,5 +31,6 @@ lc3core = { workspace = true, optional = true }
 lc3vm = { workspace = true, optional = true }
 lc3as = { workspace = true, optional = true }
 lc3dsm = { workspace = true, optional = true }
+lc3dbg = { workspace = true, optional = true }
 
 clap = { version = "4.6", features = ["derive"], optional = true }

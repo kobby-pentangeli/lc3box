@@ -5,7 +5,7 @@
 //! program on the [`lc3vm`] virtual machine, `asm` assembles a source file
 //! through [`lc3as`], `disasm` renders an object file's disassembly through
 //! [`lc3dsm`], and `dbg` opens an interactive debugging session through
-//! [`lc3dbg`], all built on the shared [`lc3core`] kernel.
+//! [`lc3debug`], all built on the shared [`lc3core`] kernel.
 
 use std::error::Error;
 use std::io;
@@ -15,7 +15,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use lc3as::{Image, assemble};
 use lc3core::ObjectFile;
-use lc3dbg::{Debugger, repl};
+use lc3debug::{Debugger, repl};
 use lc3dsm::disassemble;
 use lc3vm::{Lc3VM, RawMode};
 

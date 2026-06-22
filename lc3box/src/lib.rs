@@ -9,13 +9,13 @@
 //! - [`vm`] --- the virtual machine ([`lc3vm`]);
 //! - [`asm`] --- the assembler ([`lc3as`]);
 //! - [`dsm`] --- the disassembler ([`lc3dsm`]);
-//! - [`dbg`](mod@dbg) --- the interactive debugger ([`lc3dbg`]).
+//! - [`dbg`](mod@dbg) --- the interactive debugger ([`lc3debug`]).
 //!
 //! Each module is gated behind a like-named feature; `full` enables all five,
 //! and the default `cli` feature additionally builds the `lc3box` binary. Depend
 //! on `lc3box` with `default-features = false` and a single feature to pull in
 //! one tool alone, or on the individual `lc3core` / `lc3vm` / `lc3as` / `lc3dsm`
-//! / `lc3dbg` crates for the most granular build.
+//! / `lc3debug` crates for the most granular build.
 //!
 //! ```
 //! use lc3box::{asm, dsm, vm};
@@ -36,9 +36,9 @@ pub use lc3as as asm;
 /// The shared instruction-set kernel ([`lc3core`]).
 #[cfg(feature = "kernel")]
 pub use lc3core as kernel;
-/// The interactive debugger ([`lc3dbg`]).
+/// The interactive debugger ([`lc3debug`]).
 #[cfg(feature = "dbg")]
-pub use lc3dbg as dbg;
+pub use lc3debug as dbg;
 /// The disassembler ([`lc3dsm`]).
 #[cfg(feature = "dsm")]
 pub use lc3dsm as dsm;

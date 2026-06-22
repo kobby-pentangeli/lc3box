@@ -1,5 +1,5 @@
 [package]
-name = "lc3dbg"
+name = "lc3debug"
 description = "Interactive debugger for the LC-3: single-step, breakpoints, and register and memory inspection over the lc3vm virtual machine"
 keywords = ["lc3", "debugger", "emulator", "vm", "isa"]
 categories = ["development-tools", "emulators"]

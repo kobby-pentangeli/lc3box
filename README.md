@@ -11,15 +11,15 @@ Today the workspace ships that shared kernel and four tools---an assembler that 
 
 ## Status
 
-| Component              | Crate     | Status    |
-| ---------------------- | --------- | --------- |
-| Instruction-set kernel | `lc3core` | Available |
-| Virtual machine        | `lc3vm`   | Available |
-| Assembler              | `lc3as`   | Available |
-| Disassembler           | `lc3dsm`  | Available |
-| Debugger               | `lc3dbg`  | Available |
-| Unified CLI            | `lc3box`  | Available |
-| Compiler               | `lc3c`    | Planned   |
+| Component              | Crate      | Status    |
+| ---------------------- | ---------- | --------- |
+| Instruction-set kernel | `lc3core`  | Available |
+| Virtual machine        | `lc3vm`    | Available |
+| Assembler              | `lc3as`    | Available |
+| Disassembler           | `lc3dsm`   | Available |
+| Debugger               | `lc3debug` | Available |
+| Unified CLI            | `lc3box`   | Available |
+| Compiler               | `lc3c`     | Planned   |
 
 ## Project Structure
 
@@ -29,7 +29,7 @@ lc3box/
 ├── lc3as/      # Library: a two-pass assembler from .asm source to .obj object files
 ├── lc3dsm/     # Library: a disassembler decoding .obj objects into annotated, re-assemblable .asm
 ├── lc3vm/      # Library: a fetch–decode–execute virtual machine for .obj programs
-├── lc3dbg/     # Library: an interactive debugger driving the VM one instruction at a time
+├── lc3debug/   # Library: an interactive debugger driving the VM one instruction at a time
 ├── lc3box/     # Binary: the unified run/asm/disasm/dbg command-line driver over the five libraries
 └── examples/   # LC-3 programs: .asm source and pre-assembled .obj
 ```
@@ -38,7 +38,7 @@ lc3box/
 
 ![LC-3 Box architecture diagram](assets/lc3box-arch.png)
 
-Every tool builds on `lc3core`, the single source of truth for the LC-3 instruction set: the opcode set, the register and condition-code model, the trap vectors, the memory-map constants, and the big-endian `.obj` object-file format. `lc3as` encodes assembly source into that object format, `lc3vm` loads an object file into a full 16-bit address space and runs it through the classic fetch–decode–execute loop pictured above, `lc3dsm` decodes an object file back into a re-assemblable listing, and `lc3dbg` drives the VM one instruction at a time for interactive debugging---all going through `lc3core`, so every bit the assembler writes is the bit the VM decodes and the disassembler recovers. `lc3box` ties them together behind one command, dispatching `run`, `asm`, `disasm`, and `dbg` to the matching tool.
+Every tool builds on `lc3core`, the single source of truth for the LC-3 instruction set: the opcode set, the register and condition-code model, the trap vectors, the memory-map constants, and the big-endian `.obj` object-file format. `lc3as` encodes assembly source into that object format, `lc3vm` loads an object file into a full 16-bit address space and runs it through the classic fetch–decode–execute loop pictured above, `lc3dsm` decodes an object file back into a re-assemblable listing, and `lc3debug` drives the VM one instruction at a time for interactive debugging---all going through `lc3core`, so every bit the assembler writes is the bit the VM decodes and the disassembler recovers. `lc3box` ties them together behind one command, dispatching `run`, `asm`, `disasm`, and `dbg` to the matching tool.
 
 ## Usage
 

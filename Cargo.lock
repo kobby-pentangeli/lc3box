@@ -281,7 +281,7 @@ dependencies = [
  "clap",
  "lc3as",
  "lc3core",
- "lc3dbg",
+ "lc3debug",
  "lc3dsm",
  "lc3vm",
 ]
@@ -294,7 +294,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lc3dbg"
+name = "lc3debug"
 version = "0.7.0"
 dependencies = [
  "lc3core",

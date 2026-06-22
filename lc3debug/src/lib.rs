@@ -1,6 +1,6 @@
 //! Interactive debugger for the Little Computer 3 (LC-3).
 //!
-//! `lc3dbg` drives an [`lc3vm`] virtual machine one instruction at a time: it
+//! `lc3debug` drives an [`lc3vm`] virtual machine one instruction at a time: it
 //! single-steps, runs to breakpoints, inspects and edits registers and memory,
 //! and renders the program around the counter through [`lc3dsm`]. The
 //! [`Debugger`] is the engine---pure state transitions over a loaded program,

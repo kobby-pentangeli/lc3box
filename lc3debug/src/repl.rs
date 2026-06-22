@@ -15,7 +15,7 @@ use lc3vm::{RawMode, Registers};
 use crate::{Command, Debugger, ParseError, Register, Stop, parse};
 
 /// The prompt written before each command is read.
-const PROMPT: &str = "(lc3dbg) ";
+const PROMPT: &str = "(lc3debug) ";
 
 /// The command summary shown by `help`.
 const HELP: &str = "\

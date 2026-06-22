@@ -2,7 +2,7 @@
 
 The unified command-line driver for the [LC3 Box](../README.md) toolbox: a single frontend over the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) tool libraries, with one subcommand per tool.
 
-Each subcommand delegates to a library core built on the shared [`lc3core`](../lc3core) kernel: `run` executes through [`lc3vm`](../lc3vm), `asm` assembles through [`lc3as`](../lc3as), `disasm` disassembles through [`lc3dsm`](../lc3dsm), and `dbg` debugs through [`lc3dbg`](../lc3dbg). The tools agree on every bit of the instruction set because they share that one kernel.
+Each subcommand delegates to a library core built on the shared [`lc3core`](../lc3core) kernel: `run` executes through [`lc3vm`](../lc3vm), `asm` assembles through [`lc3as`](../lc3as), `disasm` disassembles through [`lc3dsm`](../lc3dsm), and `dbg` debugs through [`lc3debug`](../lc3debug). The tools agree on every bit of the instruction set because they share that one kernel.
 
 ## Subcommands
 
@@ -78,7 +78,7 @@ Hello World!
 
 ## Library
 
-`lc3box` is also an umbrella library that re-exports the tool crates under short module names, so one dependency reaches the whole toolbox: `lc3box::kernel` ([`lc3core`](../lc3core)), `lc3box::vm` ([`lc3vm`](../lc3vm)), `lc3box::asm` ([`lc3as`](../lc3as)), `lc3box::dsm` ([`lc3dsm`](../lc3dsm)), and `lc3box::dbg` ([`lc3dbg`](../lc3dbg)).
+`lc3box` is also an umbrella library that re-exports the tool crates under short module names, so one dependency reaches the whole toolbox: `lc3box::kernel` ([`lc3core`](../lc3core)), `lc3box::vm` ([`lc3vm`](../lc3vm)), `lc3box::asm` ([`lc3as`](../lc3as)), `lc3box::dsm` ([`lc3dsm`](../lc3dsm)), and `lc3box::dbg` ([`lc3debug`](../lc3debug)).
 
 ```rust
 use lc3box::{asm, dsm, vm};

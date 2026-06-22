@@ -22,7 +22,7 @@ kernel = ["dep:lc3core"]
 vm = ["dep:lc3vm", "kernel"]
 asm = ["dep:lc3as", "kernel"]
 dsm = ["dep:lc3dsm", "kernel"]
-dbg = ["dep:lc3dbg", "vm", "dsm"]
+dbg = ["dep:lc3debug", "vm", "dsm"]
 full = ["vm", "asm", "dsm", "dbg"]
 cli = ["full", "dep:clap"]
 
@@ -31,6 +31,6 @@ lc3core = { workspace = true, optional = true }
 lc3vm = { workspace = true, optional = true }
 lc3as = { workspace = true, optional = true }
 lc3dsm = { workspace = true, optional = true }
-lc3dbg = { workspace = true, optional = true }
+lc3debug = { workspace = true, optional = true }
 
 clap = { version = "4.6", features = ["derive"], optional = true }

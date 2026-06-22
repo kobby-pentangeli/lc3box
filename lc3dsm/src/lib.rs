@@ -15,4 +15,4 @@ mod instruction;
 mod listing;
 
 pub use instruction::{Instruction, decode};
-pub use listing::disassemble;
+pub use listing::{disassemble, render_instruction};

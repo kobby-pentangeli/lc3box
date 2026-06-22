@@ -34,6 +34,13 @@ pub fn disassemble(object: &ObjectFile) -> String {
         + "\n"
 }
 
+/// Renders a single `word` as one line of LC-3 assembly: a mnemonic with its
+/// operands, or `.FILL xNNNN` for a word that is not a canonical instruction.
+pub fn render_instruction(word: u16) -> String {
+    operation_text(decode(word), 0, &BTreeSet::new())
+        .unwrap_or_else(|| format!(".FILL x{word:04X}"))
+}
+
 /// The in-range PC-relative targets of the image, each the address a recovered
 /// label will name.
 fn collect_labels(object: &ObjectFile) -> BTreeSet<u16> {
@@ -168,12 +175,20 @@ fn pc_target(address: u16, offset: i16, labels: &BTreeSet<u16>) -> String {
 mod tests {
     use lc3core::ObjectFile;
 
-    use super::disassemble;
+    use super::{disassemble, render_instruction};
 
     /// The assembly portion of a listing line, without its trailing comment or
     /// the surrounding label and padding whitespace.
     fn body_of(line: &str) -> &str {
         line.split(';').next().unwrap_or("").trim()
+    }
+
+    #[test]
+    fn render_instruction_renders_one_word_numerically_without_framing() {
+        assert_eq!(render_instruction(0x1283), "ADD R1, R2, R3");
+        assert_eq!(render_instruction(0x0E01), "BR #1");
+        // A non-instruction word falls back to `.FILL`.
+        assert_eq!(render_instruction(0xD000), ".FILL xD000");
     }
 
     #[test]

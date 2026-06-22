@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["lc3core", "lc3vm", "lc3as", "lc3dsm", "lc3box"]
+members = ["lc3core", "lc3vm", "lc3as", "lc3dsm", "lc3dbg", "lc3box"]
 
 [workspace.package]
 version = "0.6.0"

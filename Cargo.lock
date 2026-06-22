@@ -289,6 +289,16 @@ name = "lc3core"
 version = "0.6.0"
 
 [[package]]
+name = "lc3dbg"
+version = "0.6.0"
+dependencies = [
+ "lc3core",
+ "lc3dsm",
+ "lc3vm",
+ "thiserror",
+]
+
+[[package]]
 name = "lc3dsm"
 version = "0.6.0"
 dependencies = [

@@ -1,3 +1,19 @@
+; ======================================================================
+; ROGUE – A minimal roguelike dungeon crawler.
+; ======================================================================
+; You are the '@' symbol.  Walls are '#', monsters are letters (e.g., 'H'
+; for Hobgoblin, 'O' for Orc).  The dungeon is randomly generated.
+;
+; Objective: Explore the dungeon, fight monsters, and find the Amulet of
+; Yendor to win.  Moving into a monster attacks it.
+;
+; Controls (press the key, no Enter needed):
+;   W / A / S / D   –  move up / left / down / right
+;   Ctrl+C          –  quit the game
+;
+; Good luck, adventurer!
+; ======================================================================
+
 .ORIG x3000
         LEA R0, L_3004          ; x3000 xE003
         PUTS                    ; x3001 xF022

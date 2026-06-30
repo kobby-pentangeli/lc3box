@@ -1,6 +1,6 @@
 [package]
 name = "lc3box"
-description = "Unified CLI and library for the LC-3 toolbox: run, assemble, and disassemble Little Computer 3 programs"
+description = "Unified CLI and library for the LC-3 toolbox: run, assemble, disassemble, and debug Little Computer 3 programs"
 keywords = ["lc3", "assembly", "emulator", "assembler", "toolbox"]
 categories = ["emulators", "command-line-utilities", "development-tools"]
 version.workspace = true

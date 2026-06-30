@@ -1,9 +1,20 @@
-# LC3 Box
+<div align="center">
+  <h1>LC3 Box</h1>
+  <h2>Assembler, disassembler, virtual machine, debugger, and compiler for the Little Computer 3 (LC-3) assembly language and ISA</h2>
+  <br />
+</div>
+
+<div align="center">
+<br />
 
 [![CI](https://github.com/kobby-pentangeli/lc3box/workflows/CI/badge.svg)](https://github.com/kobby-pentangeli/lc3box/actions)
 [![Crates.io](https://img.shields.io/crates/v/lc3box.svg)](https://crates.io/crates/lc3box)
+[![MSRV](https://img.shields.io/crates/msrv/lc3box.svg)](https://crates.io/crates/lc3box)
 [![Release](https://img.shields.io/github/v/release/kobby-pentangeli/lc3box?sort=semver)](https://github.com/kobby-pentangeli/lc3box/releases)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/kobby-pentangeli/lc3box/blob/main/CONTRIBUTING.md)
+
+</div>
 
 Toolbox for the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) assembly language and instruction-set architecture. The goal is a complete LC-3 toolchain---assembler, disassembler, debugger, compiler, and virtual machine---sharing one instruction-set kernel.
 
@@ -132,3 +143,7 @@ Licensed under either of
 at your option.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this codebase by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+## Acknowledgments
+
+`lc3box`'s v0.1.0 implementation was based on and/or inspired by Rodrigo Araujo's [Let’s Build an LC-3 Virtual Machine](https://www.rodrigoaraujo.me/posts/lets-build-an-lc-3-virtual-machine/).

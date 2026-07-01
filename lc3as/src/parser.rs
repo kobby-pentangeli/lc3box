@@ -872,9 +872,9 @@ mod tests {
     }
 
     #[test]
-    fn the_bootstrap_example_builds_its_segments_and_symbol_table() {
-        let source = include_str!("../../examples/bootstrap.asm");
-        let program = parse(source).expect("bootstrap parses");
+    fn the_mini_calculator_example_builds_its_segments_and_symbol_table() {
+        let source = include_str!("../../examples/mini_calculator.asm");
+        let program = parse(source).expect("mini_calculator parses");
         let origins: Vec<u16> = program
             .segments
             .iter()

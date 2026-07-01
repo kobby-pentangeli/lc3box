@@ -23,7 +23,7 @@ fn assert_disassembly_re_assembles(object: &ObjectFile) {
 
 #[test]
 fn committed_objects_re_assemble_to_themselves() {
-    for name in ["hello-world.obj", "rogue.obj", "2048.obj"] {
+    for name in ["hello_world.obj", "rogue.obj", "2048.obj"] {
         let bytes = std::fs::read(example(name)).expect("the object exists");
         let object = ObjectFile::from_be_bytes(&bytes).expect("a well-formed object");
         assert_disassembly_re_assembles(&object);
@@ -32,7 +32,7 @@ fn committed_objects_re_assemble_to_themselves() {
 
 #[test]
 fn assembled_sources_re_assemble_segment_by_segment() {
-    for name in ["hello-world.asm", "bootstrap.asm"] {
+    for name in ["hello_world.asm", "mini_calculator.asm"] {
         let source = std::fs::read_to_string(example(name)).expect("the source exists");
         let image = assemble(&source).expect("the source assembles");
         for block in &image.blocks {

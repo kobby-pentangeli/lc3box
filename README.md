@@ -61,20 +61,20 @@ The [examples](examples) folder contains pre-assembled LC-3 programs (`.obj`) an
 
 ```sh
 cargo run -p lc3box -- run examples/2048.obj
-cargo run -p lc3box -- run examples/hello-world.asm
+cargo run -p lc3box -- run examples/hello_world.asm
 ```
 
-`2048` plays a terminal build of the game; `rogue` and `hello-world` are also included. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit.
+`2048` plays a terminal build of the game; `rogue` and `hello_world` are also included. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit.
 
 ### Assemble
 
 Assemble an LC-3 source listing into an object file:
 
 ```sh
-cargo run -p lc3box -- asm examples/hello-world.asm -o hello-world.obj
+cargo run -p lc3box -- asm examples/hello_world.asm -o hello_world.obj
 ```
 
-When `-o` is omitted, the object is written next to the source with a `.obj` extension. A program split across several `.ORIG`/`.END` segments---like [examples/bootstrap.asm](examples/bootstrap.asm)---is assembled into one object file per segment.
+When `-o` is omitted, the object is written next to the source with a `.obj` extension. A program split across several `.ORIG`/`.END` segments---like [examples/mini_calculator.asm](examples/mini_calculator.asm)---is assembled into one object file per segment.
 
 ### Disassemble
 
@@ -87,8 +87,8 @@ cargo run -p lc3box -- disasm examples/2048.obj
 Each line shows its address and hex encoding as a trailing comment, labels are recovered from PC-relative references, and any word that is not a canonical instruction is rendered as `.FILL`. Use `-o`/`--output` to write the listing to a file. Paired with `asm`, `disasm` closes the round-trip---re-assembling a disassembled object reproduces the original image:
 
 ```sh
-cargo run -p lc3box -- disasm examples/hello-world.obj -o hello-world.asm
-cargo run -p lc3box -- asm hello-world.asm -o hello-world.obj
+cargo run -p lc3box -- disasm examples/hello_world.obj -o hello_world.asm
+cargo run -p lc3box -- asm hello_world.asm -o hello_world.obj
 ```
 
 ### Debug
@@ -97,7 +97,7 @@ Open an interactive debugging session on a program---a `.obj` is loaded directly
 
 ```sh
 cargo run -p lc3box -- dbg examples/2048.obj
-cargo run -p lc3box -- dbg examples/hello-world.asm
+cargo run -p lc3box -- dbg examples/hello_world.asm
 ```
 
 Single-step with `step [n]`, run to a breakpoint or `HALT` with `continue`, set and clear breakpoints with `break`/`delete`, inspect and edit registers and memory with `registers`/`set`/`write`, and disassemble around the program counter with `disassemble`; `help` lists every command and `quit` leaves. An executing program drives the terminal directly for the span of the run, while the prompt stays line-edited.

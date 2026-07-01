@@ -1074,9 +1074,9 @@ mod tests {
     #[test]
     fn hello_world_example_prints_its_greeting() {
         let (mut vm, output) = vm_with_console(b"");
-        vm.load_image(&load_example("hello-world.obj"))
+        vm.load_image(&load_example("hello_world.obj"))
             .expect("image fits");
-        vm.run().expect("hello-world runs to HALT");
+        vm.run().expect("hello_world runs to HALT");
         assert_eq!(output.borrow().as_slice(), b"Hello World!");
     }
 
@@ -1084,13 +1084,13 @@ mod tests {
     fn an_assembled_hello_world_runs_to_its_greeting() {
         // Closes the author -> assemble -> run loop: source through `lc3as`
         // produces an image the VM runs to the same greeting as the object.
-        let source = include_str!("../../examples/hello-world.asm");
-        let image = lc3as::assemble(source).expect("hello-world.asm assembles");
+        let source = include_str!("../../examples/hello_world.asm");
+        let image = lc3as::assemble(source).expect("hello_world.asm assembles");
         let (mut vm, output) = vm_with_console(b"");
         for block in &image.blocks {
             vm.load_image(block).expect("image fits");
         }
-        vm.run().expect("assembled hello-world runs to HALT");
+        vm.run().expect("assembled hello_world runs to HALT");
         assert_eq!(output.borrow().as_slice(), b"Hello World!");
     }
 

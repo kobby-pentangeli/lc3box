@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-01
+
+`lc3box run` now works when its input is not an interactive terminal, and the toolbox grows a set of small, self-contained example programs that each print their result to the console.
+
+### Added
+
+- A collection of short example programs under `examples/`, each self-contained and printing its result: reversing a string, counting the set bits of a word, computing the XOR of two registers, folding a vector with bitwise AND, counting a character's occurrences in a string, multiplying by ten, and three signed-comparison variants. Numeric results are shown by a small in-program decimal or hexadecimal print routine, since the LC-3 has no numeric-output trap.
+
+### Changed
+
+- The bundled example programs are now provided as readable, re-assemblable `.asm` source---disassembled from the pre-assembled objects where only an object existed---so every example can be read, edited, and re-assembled.
+
+### Fixed
+
+- `lc3box run` no longer aborts when standard input is not a terminal. Placing the terminal in raw mode is now best-effort, so a program run from a pipe, a redirect, or a non-interactive environment executes and prints its output instead of failing with a device error; an interactive terminal still gets raw-mode keyboard input as before.
+
 ## [0.7.0] - 2026-06-22
 
 Adds `lc3debug`, an interactive debugger for the toolbox: load a program and drive it one instruction at a time---single-step, set breakpoints, inspect and edit registers and memory, and disassemble the code around the program counter---so what a program does between assembly and output is no longer a black box.
@@ -124,6 +140,7 @@ When adding entries to this changelog for future releases:
 3. **Audience**: Write for users, not developers (focus on impact, not implementation)
 4. **Links**: Add comparison links at the bottom: `[0.7.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.6.0...v0.7.0`
 
+[0.7.1]: https://github.com/kobby-pentangeli/lc3box/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kobby-pentangeli/lc3box/compare/v0.4.0...v0.5.0

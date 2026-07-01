@@ -76,7 +76,10 @@ fn run(path: &Path) -> Result<(), Box<dyn Error>> {
 
     // Raw mode lasts only for the program's run; the guard restores the
     // terminal when this scope ends, including on an early error return.
-    let _raw = RawMode::enable()?;
+    // It is best-effort: a non-terminal standard input (a pipe, a redirect,
+    // a CI job, etc.) cannot enter raw mode, and an output-only program should run
+    // there regardless, so a failed switch is not fatal.
+    let _raw = RawMode::enable().ok();
     vm.run()?;
     Ok(())
 }

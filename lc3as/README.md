@@ -50,7 +50,7 @@ To assemble from Rust, depend on `lc3as` and call `assemble`, which returns the 
 
 ## Example
 
-[`examples/hello-world.asm`](../examples/hello-world.asm):
+[`examples/hello_world.asm`](../examples/hello_world.asm):
 
 ```asm
 ; Prints "Hello World!" to the console and halts.
@@ -63,8 +63,8 @@ HELLO   .STRINGZ "Hello World!"
 ```
 
 ```sh
-cargo run -p lc3box -- asm examples/hello-world.asm -o hello-world.obj
-cargo run -p lc3box -- run hello-world.obj
+cargo run -p lc3box -- asm examples/hello_world.asm -o hello_world.obj
+cargo run -p lc3box -- run hello_world.obj
 ```
 
 ## License

@@ -315,9 +315,9 @@ mod tests {
     }
 
     #[test]
-    fn the_bootstrap_example_assembles_to_one_block_per_segment() {
-        let image =
-            assemble(include_str!("../../examples/bootstrap.asm")).expect("bootstrap assembles");
+    fn the_mini_calculator_example_assembles_to_one_block_per_segment() {
+        let image = assemble(include_str!("../../examples/mini_calculator.asm"))
+            .expect("mini_calculator assembles");
         let origins: Vec<u16> = image.blocks.iter().map(|block| block.origin).collect();
         assert_eq!(origins, vec![0x6000, 0x6800, 0x3000]);
         // The first segment is the jump table; its words are exactly the .fill

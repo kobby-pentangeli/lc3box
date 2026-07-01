@@ -6,7 +6,7 @@ The VM models the full 16-bit address space (65,536 words), the eight general-pu
 
 ## Object files
 
-The VM runs `.obj` files: a stream of 16-bit big-endian words whose first word is the _origin_---the address at which the program is loaded---followed by the program image. Execution begins at the origin. Such files are produced by any LC-3 assembler; [examples/bootstrap.asm](../examples/bootstrap.asm) is a sample listing you can assemble.
+The VM runs `.obj` files: a stream of 16-bit big-endian words whose first word is the _origin_---the address at which the program is loaded---followed by the program image. Execution begins at the origin. Such files are produced by any LC-3 assembler; [examples/mini_calculator.asm](../examples/mini_calculator.asm) is a sample listing you can assemble.
 
 ## Traps
 
@@ -31,7 +31,7 @@ An unrecognized trap vector is reported as an error rather than executed.
 cargo run -p lc3box -- run examples/<program_name>.obj
 ```
 
-`2048` and `rogue` are interactive; `hello-world` prints a greeting and halts. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit, including on error.
+`2048` and `rogue` are interactive; `hello_world` prints a greeting and halts. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit, including on error.
 
 To drive the VM from Rust, depend on `lc3vm` and use [`Lc3VM`]: load a program with `Lc3VM::init_from_program` (from a path) or `load_program` (from an assembled image), then call `run`.
 

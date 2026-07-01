@@ -40,17 +40,17 @@ fn asm_assembles_hello_world_to_the_committed_object() {
     let output = std::env::temp_dir().join(format!("lc3box-hello-{}.obj", std::process::id()));
     let status = lc3box()
         .arg("asm")
-        .arg(example("hello-world.asm"))
+        .arg(example("hello_world.asm"))
         .args(["-o".as_ref(), output.as_os_str()])
         .status()
         .expect("the assembler runs");
     assert!(
         status.success(),
-        "assembling hello-world.asm should succeed"
+        "assembling hello_world.asm should succeed"
     );
 
     let produced = std::fs::read(&output).expect("an object file is written");
-    let canonical = std::fs::read(example("hello-world.obj")).expect("the canonical object exists");
+    let canonical = std::fs::read(example("hello_world.obj")).expect("the canonical object exists");
     let _ = std::fs::remove_file(&output);
     assert_eq!(produced, canonical);
 }
@@ -75,12 +75,12 @@ fn asm_rejects_malformed_source_with_a_line_numbered_diagnostic() {
 fn disasm_renders_hello_world_to_a_readable_listing() {
     let output = lc3box()
         .arg("disasm")
-        .arg(example("hello-world.obj"))
+        .arg(example("hello_world.obj"))
         .output()
         .expect("the disassembler runs");
     assert!(
         output.status.success(),
-        "disassembling hello-world.obj should succeed"
+        "disassembling hello_world.obj should succeed"
     );
 
     let listing = String::from_utf8(output.stdout).expect("the listing is UTF-8");
@@ -134,7 +134,7 @@ fn assemble_then_disassemble_re_assembles_to_the_same_object() {
             .success()
     };
     assert!(
-        assemble(&example("hello-world.asm"), &object),
+        assemble(&example("hello_world.asm"), &object),
         "assembling the source"
     );
     assert!(
@@ -202,7 +202,7 @@ fn run_rejects_a_malformed_object() {
 fn dbg_continues_hello_world_to_its_greeting_and_halt() {
     // `continue` runs the program to completion under the debugger: its trap
     // output reaches the terminal and the engine reports the halt.
-    let output = dbg_session(&example("hello-world.obj"), "continue\nquit\n");
+    let output = dbg_session(&example("hello_world.obj"), "continue\nquit\n");
     assert!(output.status.success(), "the session should exit cleanly");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -212,7 +212,7 @@ fn dbg_continues_hello_world_to_its_greeting_and_halt() {
 
 #[test]
 fn dbg_disassembles_a_window_of_the_loaded_program() {
-    let output = dbg_session(&example("hello-world.obj"), "disassemble x3000 4\nquit\n");
+    let output = dbg_session(&example("hello_world.obj"), "disassemble x3000 4\nquit\n");
     assert!(output.status.success(), "the session should exit cleanly");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -222,9 +222,9 @@ fn dbg_disassembles_a_window_of_the_loaded_program() {
 
 #[test]
 fn dbg_steps_and_inspects_registers() {
-    // hello-world's entry is `LEA R0, <string>`, so one step loads R0 with the
+    // hello_world's entry is `LEA R0, <string>`, so one step loads R0 with the
     // string's address; the register dump must then show a non-zero R0.
-    let output = dbg_session(&example("hello-world.obj"), "step\nregisters\nquit\n");
+    let output = dbg_session(&example("hello_world.obj"), "step\nregisters\nquit\n");
     assert!(output.status.success(), "the session should exit cleanly");
 
     let stdout = String::from_utf8_lossy(&output.stdout);

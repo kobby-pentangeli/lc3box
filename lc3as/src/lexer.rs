@@ -366,12 +366,12 @@ mod tests {
     }
 
     #[test]
-    fn the_bootstrap_example_tokenizes_cleanly() {
+    fn the_mini_calculator_example_tokenizes_cleanly() {
         // Exercises the lexer over a full, real program: the three `.stringz`
         // strings must be the only string tokens, proving that the quotes and
         // apostrophes inside `;;` comment lines are correctly stripped.
-        let source = include_str!("../../examples/bootstrap.asm");
-        let tokens = tokenize(source).expect("bootstrap tokenizes");
+        let source = include_str!("../../examples/mini_calculator.asm");
+        let tokens = tokenize(source).expect("mini_calculator tokenizes");
         let strings = tokens
             .iter()
             .filter(|t| matches!(t.kind, TokenKind::Str(_)))

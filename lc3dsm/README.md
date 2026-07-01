@@ -32,10 +32,10 @@ A malformed object file is reported with a clear message and a non-zero exit sta
 
 ## Example
 
-Disassembling the bundled [`examples/hello-world.obj`](../examples/hello-world.obj):
+Disassembling the bundled [`examples/hello_world.obj`](../examples/hello_world.obj):
 
 ```sh
-cargo run -p lc3box -- disasm examples/hello-world.obj
+cargo run -p lc3box -- disasm examples/hello_world.obj
 ```
 
 ```asm
@@ -59,7 +59,7 @@ L_3003  .FILL x0048             ; x3003 x0048
 .END
 ```
 
-The recovered `L_3003` is the address `LEA` loads---the start of the `"Hello World!"` string, which the disassembler renders as its `.FILL` character words. Feeding this listing back through `lc3box asm` reproduces `hello-world.obj` exactly.
+The recovered `L_3003` is the address `LEA` loads---the start of the `"Hello World!"` string, which the disassembler renders as its `.FILL` character words. Feeding this listing back through `lc3box asm` reproduces `hello_world.obj` exactly.
 
 ## License
 

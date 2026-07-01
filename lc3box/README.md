@@ -49,8 +49,8 @@ cargo run -p lc3box -- disasm program.obj -o program.asm
 Paired with `asm`, `disasm` closes the loop---re-assembling a disassembled object reproduces the original image byte for byte:
 
 ```sh
-cargo run -p lc3box -- disasm examples/hello-world.obj -o hello-world.asm
-cargo run -p lc3box -- asm hello-world.asm -o hello-world.obj
+cargo run -p lc3box -- disasm examples/hello_world.obj -o hello_world.asm
+cargo run -p lc3box -- asm hello_world.asm -o hello_world.obj
 ```
 
 ### Debug
@@ -66,10 +66,10 @@ Single-step with `step [n]`, run to a breakpoint or `HALT` with `continue`, set 
 
 ## Example
 
-Run the bundled [`examples/hello-world.asm`](../examples/hello-world.asm) straight from source:
+Run the bundled [`examples/hello_world.asm`](../examples/hello_world.asm) straight from source:
 
 ```sh
-cargo run -p lc3box -- run examples/hello-world.asm
+cargo run -p lc3box -- run examples/hello_world.asm
 ```
 
 ```text

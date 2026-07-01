@@ -1,9 +1,20 @@
-# LC3 Box
+<div align="center">
+  <h1>LC3 Box</h1>
+  <h2>Assembler, disassembler, virtual machine, debugger, and compiler for the Little Computer 3 (LC-3) assembly language and ISA</h2>
+  <br />
+</div>
+
+<div align="center">
+<br />
 
 [![CI](https://github.com/kobby-pentangeli/lc3box/workflows/CI/badge.svg)](https://github.com/kobby-pentangeli/lc3box/actions)
 [![Crates.io](https://img.shields.io/crates/v/lc3box.svg)](https://crates.io/crates/lc3box)
+[![MSRV](https://img.shields.io/crates/msrv/lc3box.svg)](https://crates.io/crates/lc3box)
 [![Release](https://img.shields.io/github/v/release/kobby-pentangeli/lc3box?sort=semver)](https://github.com/kobby-pentangeli/lc3box/releases)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/kobby-pentangeli/lc3box/blob/master/CONTRIBUTING.md)
+
+</div>
 
 Toolbox for the [_Little Computer 3_ (LC-3)](https://en.wikipedia.org/wiki/Little_Computer_3) assembly language and instruction-set architecture. The goal is a complete LC-3 toolchain---assembler, disassembler, debugger, compiler, and virtual machine---sharing one instruction-set kernel.
 
@@ -50,20 +61,20 @@ The [examples](examples) folder contains pre-assembled LC-3 programs (`.obj`) an
 
 ```sh
 cargo run -p lc3box -- run examples/2048.obj
-cargo run -p lc3box -- run examples/hello-world.asm
+cargo run -p lc3box -- run examples/hello_world.asm
 ```
 
-`2048` plays a terminal build of the game; `rogue` and `hello-world` are also included. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit.
+`2048` plays a terminal build of the game; `rogue` and `hello_world` are also included. Interactive programs place the terminal in raw mode for the duration of the run and restore it on exit.
 
 ### Assemble
 
 Assemble an LC-3 source listing into an object file:
 
 ```sh
-cargo run -p lc3box -- asm examples/hello-world.asm -o hello-world.obj
+cargo run -p lc3box -- asm examples/hello_world.asm -o hello_world.obj
 ```
 
-When `-o` is omitted, the object is written next to the source with a `.obj` extension. A program split across several `.ORIG`/`.END` segments---like [examples/bootstrap.asm](examples/bootstrap.asm)---is assembled into one object file per segment.
+When `-o` is omitted, the object is written next to the source with a `.obj` extension. A program split across several `.ORIG`/`.END` segments---like [examples/mini_calculator.asm](examples/mini_calculator.asm)---is assembled into one object file per segment.
 
 ### Disassemble
 
@@ -76,8 +87,8 @@ cargo run -p lc3box -- disasm examples/2048.obj
 Each line shows its address and hex encoding as a trailing comment, labels are recovered from PC-relative references, and any word that is not a canonical instruction is rendered as `.FILL`. Use `-o`/`--output` to write the listing to a file. Paired with `asm`, `disasm` closes the round-trip---re-assembling a disassembled object reproduces the original image:
 
 ```sh
-cargo run -p lc3box -- disasm examples/hello-world.obj -o hello-world.asm
-cargo run -p lc3box -- asm hello-world.asm -o hello-world.obj
+cargo run -p lc3box -- disasm examples/hello_world.obj -o hello_world.asm
+cargo run -p lc3box -- asm hello_world.asm -o hello_world.obj
 ```
 
 ### Debug
@@ -86,7 +97,7 @@ Open an interactive debugging session on a program---a `.obj` is loaded directly
 
 ```sh
 cargo run -p lc3box -- dbg examples/2048.obj
-cargo run -p lc3box -- dbg examples/hello-world.asm
+cargo run -p lc3box -- dbg examples/hello_world.asm
 ```
 
 Single-step with `step [n]`, run to a breakpoint or `HALT` with `continue`, set and clear breakpoints with `break`/`delete`, inspect and edit registers and memory with `registers`/`set`/`write`, and disassemble around the program counter with `disassemble`; `help` lists every command and `quit` leaves. An executing program drives the terminal directly for the span of the run, while the prompt stays line-edited.
@@ -132,3 +143,7 @@ Licensed under either of
 at your option.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this codebase by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+## Acknowledgments
+
+`lc3box`'s v0.1.0 implementation was based on and/or inspired by Rodrigo Araujo's [Let’s Build an LC-3 Virtual Machine](https://www.rodrigoaraujo.me/posts/lets-build-an-lc-3-virtual-machine/).

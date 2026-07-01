@@ -555,20 +555,20 @@ impl Lc3VM {
         self.registers.update_flags(dr);
     }
 
-    /// Executes a trap service routine for I/O operations.
+    /// Services one of the six standard trap routines directly.
     ///
-    /// # Behavior
-    /// - Saves the incremented PC in R7
-    /// - Jumps to the trap handler address from the trap vector table
-    /// - Handles 6 predefined system calls (GETC, OUT, PUTS, IN, PUTSP, HALT)
+    /// This user-mode VM has no trap vector table or supervisor stack, so a
+    /// `TRAP` is serviced in the host rather than by saving the program counter
+    /// in R7 and jumping to a handler. The general-purpose registers a routine
+    /// does not name are therefore left untouched, R7 included.
     ///
     /// # Trap Vector Mapping
-    /// - 0x20 (GETC): Read single character to R0
-    /// - 0x21 (OUT): Write character from R0
-    /// - 0x22 (PUTS): Write null-terminated string
-    /// - 0x23 (IN): Prompt and read character
-    /// - 0x24 (PUTSP): Write packed byte string
-    /// - 0x25 (HALT): Terminate execution
+    /// - 0x20 (GETC): Read a single character into R0
+    /// - 0x21 (OUT): Write the character in R0 to the console
+    /// - 0x22 (PUTS): Write the null-terminated string addressed by R0
+    /// - 0x23 (IN): Prompt for and read a character into R0
+    /// - 0x24 (PUTSP): Write the packed two-per-word string addressed by R0
+    /// - 0x25 (HALT): Stop the machine
     fn trap(&mut self, instruction: u16) -> Result<Step, Error> {
         let code = TrapVector::try_from(instruction & 0xFF).map_err(Error::UnknownTrap)?;
 

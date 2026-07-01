@@ -12,7 +12,7 @@
 [![MSRV](https://img.shields.io/crates/msrv/lc3box.svg)](https://crates.io/crates/lc3box)
 [![Release](https://img.shields.io/github/v/release/kobby-pentangeli/lc3box?sort=semver)](https://github.com/kobby-pentangeli/lc3box/releases)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/kobby-pentangeli/lc3box/blob/main/CONTRIBUTING.md)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/kobby-pentangeli/lc3box/blob/master/CONTRIBUTING.md)
 
 </div>
 
